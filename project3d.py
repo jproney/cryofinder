@@ -287,9 +287,8 @@ def main(args):
 
     t2 = time.time()
     print(f'Projected {poses.N} images in {t2-t1}s ({(t2-t1) / (poses.N)}s per image)')
-
     print(f'Saving {args.outstack}')
-    header = mrc.MRCHeader.make_default_header(out_imgs, Apix=1., is_vol=False)
+    header = mrc.MRCHeader.get_mrc_header(out_imgs, Apix=1., is_vol=False)
     with open(args.outstack, 'wb') as f:
         header.write(f)
         out_imgs.tofile(f)  # this syntax avoids cryodrgn.mrc.write()'s call to .tobytes() which copies the array in memory
