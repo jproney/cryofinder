@@ -14,16 +14,10 @@ import torch
 import torch.nn.functional as F
 import torch.utils.data as data
 
-try:
-    from cryodrgn import lie_tools, mrc, so3_grid, utils
-except ImportError:
-    from tomodrgn import lie_tools, mrc, so3_grid, utils
-else:
-    raise RuntimeError
 
+from cryodrgn import lie_tools, so3_grid, utils
+from cryodrgn import mrcfile as mrc
 
-log = utils.log
-vlog = utils.vlog
 
 def parse_args(parser):
     parser.add_argument('mrc', type=os.path.abspath, help='Input volume')
@@ -102,7 +96,7 @@ class Projector:
                 tilt_series_matrices[i] = utils.xrot(tilt)
 
             self.tilts_matrices = torch.from_numpy(tilt_series_matrices).to(device)
-            log(f'Loaded tilt scheme from {args.tilt_series} with {len(tilt_series)} tilts: {tilt_series}')
+            print(f'Loaded tilt scheme from {args.tilt_series} with {len(tilt_series)} tilts: {tilt_series}')
 
         self.tilts = tilt_series
         self.is_mask = is_mask
@@ -188,11 +182,11 @@ def mkbasedir(out):
 
 def warnexists(out):
     if os.path.exists(out):
-        log(f'Warning: {out} already exists. Will overwrite at the end of this script. [CTRL]+[C] to cancel.')
+        print(f'Warning: {out} already exists. Will overwrite at the end of this script. [CTRL]+[C] to cancel.')
 
 
 def main(args):
-    log(args)
+    print(args)
     for out in (args.outstack, args.out_png, args.out_pose):
         if not out: continue
         mkbasedir(out)
@@ -204,7 +198,7 @@ def main(args):
 
     use_cuda = torch.cuda.is_available()
     device = torch.device('cuda' if use_cuda else 'cpu')
-    log(f'Use cuda {use_cuda}')
+    print(f'Use cuda {use_cuda}')
     if use_cuda:
         torch.set_default_tensor_type(torch.cuda.FloatTensor)
 
@@ -213,7 +207,7 @@ def main(args):
     vol = pad_to_smallest_cube(vol)
     D = vol.shape[-1]
     assert D % 2 == 0
-    log(f'Loaded {vol.shape} volume')
+    print(f'Loaded {vol.shape} volume')
 
     if args.stage_tilt:
         theta = np.array(args.stage_tilt*np.pi/180, dtype=np.float32)
@@ -231,31 +225,31 @@ def main(args):
     if args.healpy_grid is not None:
         quats = so3_grid.grid_SO3(args.healpy_grid).astype(np.float32)
         rots = lie_tools.quaternions_to_SO3(torch.from_numpy(quats)).to(device)
-        log(f'Generating {rots.shape[0]} rotations at resolution level {args.healpy_grid}')
+        print(f'Generating {rots.shape[0]} rotations at resolution level {args.healpy_grid}')
     elif args.so3_random is not None:
         rots = lie_tools.random_SO3(args.so3_random, dtype=torch.float32).to(device)
-        log(f'Generating {rots.shape[0]} random rotations')
+        print(f'Generating {rots.shape[0]} random rotations')
     elif args.in_pose is not None:
         poses = utils.load_pkl(args.in_pose)
         assert type(poses) == tuple, '--in-pose .pkl file must have both rotations and translations!'
         rots = torch.from_numpy(poses[0].astype(np.float32)).to(device)
-        log(f'Generating {rots.shape[0]} rotations from {args.in_pose}')
+        print(f'Generating {rots.shape[0]} rotations from {args.in_pose}')
     else:
         raise RuntimeError
 
     # expand rotation matrices to account for tilt scheme if specified
     if projector.tilt is not None:
-        log('Composing rotations with stage tilt')
+        print('Composing rotations with stage tilt')
         rots = projector.tilt @ rots
     if projector.tilts is not None:
-        log('Composing rotations with stage tilt series')
+        print('Composing rotations with stage tilt series')
         # expands to `lattice @ tilts_matrices @ rots` rotations
         # .view ordering keeps sequential tilts of same particle adjacent in out.mrcs and out_pose.pkl
         rots = (projector.tilts_matrices @ rots.unsqueeze(1)).view(-1, 3, 3)
 
     # generate translation matrices
     if args.in_pose is not None:
-        log('Generating translations from input poses')
+        print('Generating translations from input poses')
         assert args.t_extent == 0, 'Only one of --in-pose and --t-extent can be specified'
         poses = utils.load_pkl(args.in_pose)
         assert type(poses) == tuple, '--in-pose .pkl file must have both rotations and translations!'
@@ -264,18 +258,18 @@ def main(args):
     elif args.t_extent != 0:
         assert args.t_extent > 0, '--t-extent must have a non-negative value'
         assert args.t_extent < projector.nx, '--t-extent cannot be larger than the projection boxsize'
-        log(f'Generating translations between +/- {args.t_extent} pixels')
+        print(f'Generating translations between +/- {args.t_extent} pixels')
         trans = (np.random.rand(rots.shape[0], 2) * 2 * args.t_extent - args.t_extent).astype(np.float32)
         trans /= D # convert to boxsize fraction
     else:
-        log('No translations specified; will not shift images')
+        print('No translations specified; will not shift images')
         trans = None
 
     # construct poses dataset
     poses = Poses(rots, trans)
 
     # apply rotations and project 3D to 2D
-    log('Processing...')
+    print('Processing...')
     pose_iterator = data.DataLoader(poses, batch_size=args.b, shuffle=False)
     out_imgs = np.zeros((len(rots), D, D), dtype=np.float32)
     for i, pose in enumerate(pose_iterator):
@@ -284,22 +278,22 @@ def main(args):
         else:
             rot = pose
             tran = None
-        vlog(f'Projecting {(i+1) * args.b}/{poses.N}')
+        print(f'Projecting {(i+1) * args.b}/{poses.N}')
         projection = projector.project(rot)
         if tran is not None:
             projection = projector.translate(projection, tran)
         out_imgs[i * args.b: (i+1) * args.b] = projection.cpu().numpy().astype(np.float32)
 
     t2 = time.time()
-    log(f'Projected {poses.N} images in {t2-t1}s ({(t2-t1) / (poses.N)}s per image)')
+    print(f'Projected {poses.N} images in {t2-t1}s ({(t2-t1) / (poses.N)}s per image)')
 
-    log(f'Saving {args.outstack}')
+    print(f'Saving {args.outstack}')
     header = mrc.MRCHeader.make_default_header(out_imgs, Apix=1., is_vol=False)
     with open(args.outstack, 'wb') as f:
         header.write(f)
         out_imgs.tofile(f)  # this syntax avoids cryodrgn.mrc.write()'s call to .tobytes() which copies the array in memory
 
-    log(f'Saving {args.out_pose}')
+    print(f'Saving {args.out_pose}')
     if type(poses.rots) == torch.Tensor:
         poses.rots = poses.rots.cpu().numpy().astype(np.float32)
     poses.rots = poses.rots.astype(np.float32)
@@ -312,7 +306,7 @@ def main(args):
         utils.save_pkl((poses.rots), args.out_pose)
 
     if args.out_png:
-        log(f'Saving {args.out_png}')
+        print(f'Saving {args.out_png}')
         plot_projections(args.out_png, out_imgs[:9])
 
 if __name__ == '__main__':
