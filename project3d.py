@@ -274,12 +274,12 @@ def main(args):
     pose_iterator = data.DataLoader(poses, batch_size=args.b, shuffle=False)
     out_imgs = np.zeros((len(rots), D, D), dtype=np.float32)
     for i, pose in enumerate(pose_iterator):
-        if len(pose) == 2:
+        if len(pose) == 2 and not torch.is_tensor(pose):
             rot, tran = pose
         else:
             rot = pose
             tran = None
-        print(f'Projecting {(i+1) * args.b}/{poses.N}')
+        print(f'Projecting {min((i+1) * args.b, poses.N)}/{poses.N}')
         projection = projector.project(rot)
         if tran is not None:
             projection = projector.translate(projection, tran)
