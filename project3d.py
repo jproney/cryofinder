@@ -107,6 +107,7 @@ class Projector:
         lattice: D^3 x 3
         tilts_matrices: ntilts x 3 x 3 rotation matrices
         '''
+        print(rot.shape)
         B = rot.size(0)
         grid = self.lattice @ rot # B x D^3 x 3
         grid = grid.view(-1, self.nz, self.ny, self.nx, 3)
