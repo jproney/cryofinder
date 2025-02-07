@@ -84,7 +84,7 @@ def rotate_images(images, rot, lat=None, mask=None, input_hartley=True, output_h
         for angle_idx, interp_coords in enumerate(rot_coords):
             interpolated = interpolate(full_images_masked, interp_coords)
             interpolated *= ht_flat.std(-1, keepdim=True) / interpolated.std(-1, keepdim=True)
-            rot_images[:, angle_idx, mask] = interpolated
+            rot_images[:, angle_idx][:,mask] = interpolated
     else:
         rot_images = lat.rotate(ht, rot) # M x R x D x D
 
