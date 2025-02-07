@@ -79,12 +79,13 @@ def rotate_images(images, rot, lat=None, mask=None, input_hartley=True, output_h
         full_images_masked = torch.zeros_like(ht)
         full_images_masked.view(-1, ht.shape[-1]**2)[:, mask] = ht_flat
 
-        rot_images = torch.zeros((ht.shape[0], len(rot), ht.shape[-1], ht.shape[-1]), device=ht.device)
+        rot_images = torch.zeros((ht.shape[0], len(rot), ht.shape[-1]*ht.shape[-1]), device=ht.device)
 
         for angle_idx, interp_coords in enumerate(rot_coords):
             interpolated = interpolate(full_images_masked, interp_coords)
             interpolated *= ht_flat.std(-1, keepdim=True) / interpolated.std(-1, keepdim=True)
-            rot_images[:, angle_idx][:,mask] = interpolated
+            rot_images[:,angle_idx, mask] = interpolated
+        rot_images = rot_images.view(ht.shape[0], len(rot), ht.shape[-1], ht.shape[-1])
     else:
         rot_images = lat.rotate(ht, rot) # M x R x D x D
 
