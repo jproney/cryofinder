@@ -1,6 +1,5 @@
 import torch
 from cryodrgn.lattice import Lattice
-from cryodrgn import lie_tools, shift_grid, so3_grid
 from cryodrgn.pose_search import rot_2d, interpolate
 from cryodrgn import fft
 
@@ -27,7 +26,7 @@ def translate_images(images, trans, lat=None, mask=None, input_hartley=True, out
 
     if not input_hartley:
         ht = fft.ht2_center(images)
-        ht = fft.symmetrize_ht(images)
+        ht = fft.symmetrize_ht(ht)
     else:
         ht = images
 
@@ -65,7 +64,7 @@ def rotate_images(images, rot, lat=None, mask=None, input_hartley=True, output_h
 
     if not input_hartley:
         ht = fft.ht2_center(images)
-        ht = fft.symmetrize_ht(images)
+        ht = fft.symmetrize_ht(ht)
     else:
         ht = images
 
