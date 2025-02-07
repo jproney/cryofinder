@@ -41,9 +41,10 @@ def translate_images(images, trans, lat=None, mask=None, input_hartley=True, out
     # outputs of translation in hartley space. Shape N x T x D x D
     trans_images = torch.zeros((images.shape[0], translated_flat.shape[1], ht.shape[1]**2), device=images.device)
     trans_images[..., mask] = translated_flat
+    trans_images = trans_images.view((trans_images.shape[:-1] + ht.shape[1:]))
 
     if not output_hartley:
-        trans_images = fft.iht2_center(trans_images.view((trans_images.shape[:-1] + ht.shape[1:]))[...,:-1,:-1])
+        trans_images = fft.iht2_center(trans_images[...,:-1,:-1])
 
     return trans_images
 
@@ -121,9 +122,7 @@ def optimize_theta_trans(ref_images, query_images, trans, rot, fast_rotate=False
     query_ht = fft.symmetrize_ht(query_images)
 
     # Use rotate_images function instead of duplicating rotation logic
-    query_rot_images = rotate_images(query_ht, rot, lat=lat, mask=mask, 
-                                   input_hartley=True, output_hartley=True,
-                                   fast_rotate=fast_rotate)
+    query_rot_images = rotate_images(query_ht, rot, lat=lat, mask=mask, fast_rotate=fast_rotate)
 
     query_expanded = query_rot_images.unsqueeze(0).unsqueeze(2)
     ref_expanded = ref_trans_images.unsqueeze(1).unsqueeze(3)
