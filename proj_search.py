@@ -95,7 +95,7 @@ def rotate_images(images, rot, lat=None, mask=None, input_hartley=True, output_h
 
     return rot_images
 
-def optimize_theta_trans(ref_images, query_images, trans, rot, fast_rotate=False):
+def optimize_theta_trans(ref_images, query_images, trans, rot, fast_rotate=False, fast_translate=False):
     """
     query_image - shape N x D x D, real space image
     ref_images - shape M x D x D, real space image
@@ -110,12 +110,14 @@ def optimize_theta_trans(ref_images, query_images, trans, rot, fast_rotate=False
     lat = Lattice(ref_images.shape[1]+1)
     mask = lat.get_circular_mask((ref_images.shape[1]) // 2)
 
+
     # make many translations of the references in hartley space
     ref_ht = fft.ht2_center(ref_images)
     ref_ht = fft.symmetrize_ht(ref_images)
 
-    # outputs of translation in hartley space. Shape N x T x D x D
-    ref_trans_images = translate_images(ref_ht, trans, lat, mask)
+    if not fast_translate:
+        # outputs of translation in hartley space. Shape N x T x D x D
+        ref_trans_images = translate_images(ref_ht, trans, lat, mask)
 
     # rotate the query in hartley space 
     query_ht = fft.ht2_center(query_images)
@@ -124,13 +126,24 @@ def optimize_theta_trans(ref_images, query_images, trans, rot, fast_rotate=False
     # Use rotate_images function instead of duplicating rotation logic
     query_rot_images = rotate_images(query_ht, rot, lat=lat, mask=mask, fast_rotate=fast_rotate)
 
-    query_expanded = query_rot_images.unsqueeze(0).unsqueeze(2)
-    ref_expanded = ref_trans_images.unsqueeze(1).unsqueeze(3)
+    if not fast_translate:
+        query_expanded = query_rot_images.unsqueeze(0).unsqueeze(2)
+        ref_expanded = ref_trans_images.unsqueeze(1).unsqueeze(3)
 
-    # Compute normalized cross correlation in hartley space
-    pairwise_corr = (query_expanded * ref_expanded).sum(dim=(-1,-2)) / (
-        torch.std(query_expanded, dim=(-1,-2)) * torch.std(ref_expanded, dim=(-1,-2)))
+        # Compute normalized cross correlation in hartley space
+        pairwise_corr = (query_expanded * ref_expanded).sum(dim=(-1,-2)) / (
+            torch.std(query_expanded, dim=(-1,-2)) * torch.std(ref_expanded, dim=(-1,-2)))
+    else:
+        query_expanded = query_rot_images.unsqueeze(0) # 1 x N x R x D x D
+        ref_expanded = ref_ht.unsqueeze(1).unsqueeze(2) # M x 1 x 1 x D x D
 
+        # Compute cross power spectrum in Hartley space
+        cross_power = query_expanded * ref_expanded # M x N x R x D x D
+
+        # Convert to real space to find optimal alignment
+        pairwise_corr = fft.iht2_center(cross_power[...,:-1,:-1]) # M x N x R x D x D
+        pairwise_corr = pairwise_corr.view(pairwise_corr.shape[:-2] + (-1,)).permute([0,1,3,2])
+        
     return pairwise_corr
 
 def optimize_theta_trans_chunked(ref_images, query_images, trans, rot, chunk_size=100, fast_rotate=False):
