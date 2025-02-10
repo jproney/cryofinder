@@ -135,52 +135,53 @@ def optimize_theta_trans(ref_images, query_images, trans, rot, fast_rotate=False
 
 def optimize_theta_trans_chunked(ref_images, query_images, trans, rot, chunk_size=100, fast_rotate=False):
     """
-    Memory-efficient version that processes query images in chunks.
+    Memory-efficient version that processes reference images in chunks.
     
     Args:
         ref_images: shape M x D x D, real space images
         query_images: shape N x D x D, real space images  
         trans: shape N x T x 2 or T x 2, cartesian coordinates
         rot: shape R, rotation angles in radians
-        chunk_size: int, number of query images to process at once
+        chunk_size: int, number of reference images to process at once
         fast_rotate: bool, whether to use fast rotation
         
     Returns:
         best_corr: shape N, best correlation for each query image
-        best_ref: shape N, index of best reference for each query
-        best_trans: shape N, index of best translation for each query  
-        best_rot: shape N, index of best rotation for each query
+        best_indices: shape N x 3, indices of best (rotation, reference, translation) for each query
     """
+    M = ref_images.shape[0]
     N = query_images.shape[0]
     device = query_images.device
     
     # Initialize arrays to store best results
     best_corr = torch.full((N,), float('-inf'), device=device)
-    best_ref = torch.zeros(N, dtype=torch.long, device=device)
-    best_trans = torch.zeros(N, dtype=torch.long, device=device)
-    best_rot = torch.zeros(N, dtype=torch.long, device=device)
+    best_indices = torch.zeros((N, 3), dtype=torch.long, device=device)
     
-    # Process in chunks
-    for chunk_start in range(0, N, chunk_size):
-        chunk_end = min(chunk_start + chunk_size, N)
-        chunk_query = query_images[chunk_start:chunk_end]
+    # Process reference images in chunks
+    for chunk_start in range(0, M, chunk_size):
+        chunk_end = min(chunk_start + chunk_size, M)
+        chunk_refs = ref_images[chunk_start:chunk_end]
         
         # Get correlations for this chunk
-        chunk_corr = optimize_theta_trans(ref_images, chunk_query, trans, rot, fast_rotate)
-        # chunk_corr shape: chunk_size x R x M x T
+        chunk_corr = optimize_theta_trans(chunk_refs, query_images, trans, rot, fast_rotate)
+        # chunk_corr shape: N x R x chunk_size x T
         
-        # Find best correlations and corresponding indices
-        chunk_best_corr, chunk_best_trans = chunk_corr.max(dim=-1)  # Over translations
-        chunk_best_corr, chunk_best_ref = chunk_best_corr.max(dim=-1)  # Over references
-        chunk_best_corr, chunk_best_rot = chunk_best_corr.max(dim=-1)  # Over rotations
+        # Find best correlations in this chunk
+        chunk_best_vals, chunk_best_idxs = chunk_corr.reshape(N, -1).max(dim=-1)
         
-        # Update best results for this chunk
-        best_corr[chunk_start:chunk_end] = chunk_best_corr
-        best_ref[chunk_start:chunk_end] = chunk_best_ref
-        best_trans[chunk_start:chunk_end] = chunk_best_trans
-        best_rot[chunk_start:chunk_end] = chunk_best_rot
+        # Convert flattened indices to rotation, reference, translation indices
+        chunk_best_indices = torch.stack(torch.unravel_index(chunk_best_idxs,
+                                                           (chunk_corr.shape[1],  # rotations
+                                                            chunk_corr.shape[2],  # references (chunk_size)
+                                                            chunk_corr.shape[3]   # translations
+                                                           )), dim=1)
         
-        # Optional: free memory
-        torch.cuda.empty_cache()
-    
-    return best_corr, best_ref, best_trans, best_rot
+        # Adjust reference indices to account for chunking
+        chunk_best_indices[:,1] += chunk_start
+        
+        # Update best results where this chunk had better correlations
+        better_mask = chunk_best_vals > best_corr
+        best_corr[better_mask] = chunk_best_vals[better_mask]
+        best_indices[better_mask] = chunk_best_indices[better_mask]
+
+    return best_corr, best_indices
