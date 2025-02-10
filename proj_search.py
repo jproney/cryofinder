@@ -171,13 +171,13 @@ def optimize_theta_trans_chunked(ref_images, query_images, trans, rot, chunk_siz
         
         # Convert flattened indices to rotation, reference, translation indices
         chunk_best_indices = torch.stack(torch.unravel_index(chunk_best_idxs,
-                                                           (chunk_corr.shape[1],  # rotations
-                                                            chunk_corr.shape[2],  # references (chunk_size)
-                                                            chunk_corr.shape[3]   # translations
+                                                           (chunk_corr.shape[1],  # references (chunk_size)
+                                                            chunk_corr.shape[2],  # translations
+                                                            chunk_corr.shape[3]   # rotations
                                                            )), dim=1)
         
         # Adjust reference indices to account for chunking
-        chunk_best_indices[:,1] += chunk_start
+        chunk_best_indices[:,0] += chunk_start
         
         # Update best results where this chunk had better correlations
         better_mask = chunk_best_vals > best_corr
