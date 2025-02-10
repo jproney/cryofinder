@@ -27,7 +27,7 @@ def parse_args(parser):
     group = group.add_mutually_exclusive_group(required=True)
     group.add_argument('--in-pose', type=os.path.abspath, help='Explicitly provide input poses (cryodrgn .pkl format)')
     group.add_argument('--healpy-grid', type=int, help='Resolution level at which to uniformly sample a sphere (equivalent to healpy log_2(NSIDE)')
-    group.add_argument('--healpy-so2-grid', type=int, help='Resolution level at which to uniformly sample a rotation from so2 (no implane rotations)')
+    group.add_argument('--healpy-so2-grid', type=int, help='Resolution level at which to uniformly sample a rotation from so2 (no inplane rotations)')
     group.add_argument('--so3-random', type=int, help='Number of projections to randomly sample from SO3')
 
     group = parser.add_argument_group('Optional pose sampling arguments')
@@ -231,7 +231,7 @@ def main(args):
     elif args.healpy_so2_grid is not None:
         quats = so3_grid.s2_grid_SO3(args.healpy_so2_grid).astype(np.float32)
         rots = lie_tools.quaternions_to_SO3(torch.from_numpy(quats)).to(device)
-        print(f'Generating {rots.shape[0]} SO2 rotations at resolution level {args.healpy_grid}')    
+        print(f'Generating {rots.shape[0]} SO2 rotations at resolution level {args.healpy_so2_grid}')    
     elif args.so3_random is not None:
         rots = lie_tools.random_SO3(args.so3_random, dtype=torch.float32).to(device)
         print(f'Generating {rots.shape[0]} random rotations')

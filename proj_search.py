@@ -132,3 +132,55 @@ def optimize_theta_trans(ref_images, query_images, trans, rot, fast_rotate=False
         torch.std(query_expanded, dim=(-1,-2)) * torch.std(ref_expanded, dim=(-1,-2)))
 
     return pairwise_corr
+
+def optimize_theta_trans_chunked(ref_images, query_images, trans, rot, chunk_size=100, fast_rotate=False):
+    """
+    Memory-efficient version that processes query images in chunks.
+    
+    Args:
+        ref_images: shape M x D x D, real space images
+        query_images: shape N x D x D, real space images  
+        trans: shape N x T x 2 or T x 2, cartesian coordinates
+        rot: shape R, rotation angles in radians
+        chunk_size: int, number of query images to process at once
+        fast_rotate: bool, whether to use fast rotation
+        
+    Returns:
+        best_corr: shape N, best correlation for each query image
+        best_ref: shape N, index of best reference for each query
+        best_trans: shape N, index of best translation for each query  
+        best_rot: shape N, index of best rotation for each query
+    """
+    N = query_images.shape[0]
+    device = query_images.device
+    
+    # Initialize arrays to store best results
+    best_corr = torch.full((N,), float('-inf'), device=device)
+    best_ref = torch.zeros(N, dtype=torch.long, device=device)
+    best_trans = torch.zeros(N, dtype=torch.long, device=device)
+    best_rot = torch.zeros(N, dtype=torch.long, device=device)
+    
+    # Process in chunks
+    for chunk_start in range(0, N, chunk_size):
+        chunk_end = min(chunk_start + chunk_size, N)
+        chunk_query = query_images[chunk_start:chunk_end]
+        
+        # Get correlations for this chunk
+        chunk_corr = optimize_theta_trans(ref_images, chunk_query, trans, rot, fast_rotate)
+        # chunk_corr shape: chunk_size x R x M x T
+        
+        # Find best correlations and corresponding indices
+        chunk_best_corr, chunk_best_trans = chunk_corr.max(dim=-1)  # Over translations
+        chunk_best_corr, chunk_best_ref = chunk_best_corr.max(dim=-1)  # Over references
+        chunk_best_corr, chunk_best_rot = chunk_best_corr.max(dim=-1)  # Over rotations
+        
+        # Update best results for this chunk
+        best_corr[chunk_start:chunk_end] = chunk_best_corr
+        best_ref[chunk_start:chunk_end] = chunk_best_ref
+        best_trans[chunk_start:chunk_end] = chunk_best_trans
+        best_rot[chunk_start:chunk_end] = chunk_best_rot
+        
+        # Optional: free memory
+        torch.cuda.empty_cache()
+    
+    return best_corr, best_ref, best_trans, best_rot
