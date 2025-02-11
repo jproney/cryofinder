@@ -152,7 +152,7 @@ def optimize_theta_trans(ref_images, query_images, trans, rot, fast_rotate=False
         
     return pairwise_corr
 
-def optimize_theta_trans_chunked(ref_images, query_images, trans, rot, chunk_size=100, fast_rotate=False, fast_translate=False):
+def optimize_theta_trans_chunked(ref_images, query_images, trans, rot, chunk_size=100, fast_rotate=False, fast_translate=False, max_trans=14):
     """
     Memory-efficient version that processes reference images in chunks.
     
@@ -182,7 +182,7 @@ def optimize_theta_trans_chunked(ref_images, query_images, trans, rot, chunk_siz
         chunk_refs = ref_images[chunk_start:chunk_end]
         
         # Get correlations for this chunk
-        chunk_corr = optimize_theta_trans(chunk_refs, query_images, trans, rot, fast_rotate, fast_translate).transpose(0,1)
+        chunk_corr = optimize_theta_trans(chunk_refs, query_images, trans, rot, fast_rotate, fast_translate, max_trans=14).transpose(0,1)
         # chunk_corr shape: N x R x chunk_size x T
         
         # Find best correlations in this chunk
