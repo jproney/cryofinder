@@ -107,10 +107,10 @@ def optimize_theta_trans(ref_images, query_images, trans, rot, fast_rotate=False
     if len(trans.shape) == 2:
         trans = trans.unsqueeze(0)
 
-    if lat is not None:
+    if lat is None:
         lat = Lattice(ref_images.shape[1]+1)
     
-    if mask is not None:
+    if mask is None:
         mask = lat.get_circular_mask((ref_images.shape[1]) // 2)
 
 
@@ -153,7 +153,6 @@ def optimize_theta_trans(ref_images, query_images, trans, rot, fast_rotate=False
         start = (D - max_trans) // 2
         end = start + max_trans
         pairwise_corr = full_corr[..., start:end, start:end] # M x N x R x 30 x 30
-        pairwise_corr = pairwise_corr / (torch.std(query_images.unsqueeze(0).unsqueeze(2), dim=(-1,-2), keepdim=True) * torch.std(ref_images.unsqueeze(1).unsqueeze(2), dim=(-1,-2), keepdim=True))
         pairwise_corr = pairwise_corr.view(pairwise_corr.shape[:-2] + (-1,)).permute([0,1,3,2])
         
     return pairwise_corr
