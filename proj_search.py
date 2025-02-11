@@ -195,7 +195,7 @@ def optimize_theta_trans_chunked(ref_images, query_images, trans, rot, chunk_siz
         chunk_refs = ref_images[chunk_start:chunk_end]
         
         # Get correlations for this chunk
-        chunk_corr = optimize_theta_trans(chunk_refs, query_rot_images, trans, rot, fast_rotate, fast_translate, max_trans=14).transpose(0,1)
+        chunk_corr = optimize_theta_trans(chunk_refs, query_rot_images, trans, rot, fast_rotate, fast_translate, max_trans=max_trans, mask=mask, lat=lat, pre_rotated=True).transpose(0,1)
         # chunk_corr shape: N x R x chunk_size x T
         
         # Find best correlations in this chunk
