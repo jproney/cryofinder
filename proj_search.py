@@ -113,7 +113,7 @@ def optimize_theta_trans(ref_images, query_images, trans, rot, fast_rotate=False
 
     # make many translations of the references in hartley space
     ref_ht = fft.ht2_center(ref_images)
-    ref_ht = fft.symmetrize_ht(ref_images)
+    ref_ht = fft.symmetrize_ht(ref_ht)
 
     if not fast_translate:
         # outputs of translation in hartley space. Shape N x T x D x D
@@ -121,7 +121,7 @@ def optimize_theta_trans(ref_images, query_images, trans, rot, fast_rotate=False
 
     # rotate the query in hartley space 
     query_ht = fft.ht2_center(query_images)
-    query_ht = fft.symmetrize_ht(query_images)
+    query_ht = fft.symmetrize_ht(query_ht)
 
     # Use rotate_images function instead of duplicating rotation logic
     query_rot_images = rotate_images(query_ht, rot, lat=lat, mask=mask, fast_rotate=fast_rotate)
