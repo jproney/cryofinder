@@ -95,7 +95,7 @@ def rotate_images(images, rot, lat=None, mask=None, input_hartley=True, output_h
 
     return rot_images
 
-def optimize_theta_trans(ref_images, query_images, trans, rot, fast_rotate=False, fast_translate=False, max_trans=14):
+def optimize_theta_trans(ref_images, query_images, trans, rot, fast_rotate=False, fast_translate=False, pre_rotated=False, max_trans=14, lat=None, mask=None):
     """
     query_image - shape N x D x D, real space image
     ref_images - shape M x D x D, real space image
@@ -107,8 +107,11 @@ def optimize_theta_trans(ref_images, query_images, trans, rot, fast_rotate=False
     if len(trans.shape) == 2:
         trans = trans.unsqueeze(0)
 
-    lat = Lattice(ref_images.shape[1]+1)
-    mask = lat.get_circular_mask((ref_images.shape[1]) // 2)
+    if lat is not None:
+        lat = Lattice(ref_images.shape[1]+1)
+    
+    if mask is not None:
+        mask = lat.get_circular_mask((ref_images.shape[1]) // 2)
 
 
     # make many translations of the references in hartley space
@@ -119,12 +122,15 @@ def optimize_theta_trans(ref_images, query_images, trans, rot, fast_rotate=False
         # outputs of translation in hartley space. Shape N x T x D x D
         ref_trans_images = translate_images(ref_ht, trans, lat, mask)
 
-    # rotate the query in hartley space 
-    query_ht = fft.ht2_center(query_images)
-    query_ht = fft.symmetrize_ht(query_ht)
+    if not pre_rotated:
+        # rotate the query in hartley space 
+        query_ht = fft.ht2_center(query_images)
+        query_ht = fft.symmetrize_ht(query_ht)
 
-    # Use rotate_images function instead of duplicating rotation logic
-    query_rot_images = rotate_images(query_ht, rot, lat=lat, mask=mask, fast_rotate=fast_rotate)
+        # Use rotate_images function instead of duplicating rotation logic
+        query_rot_images = rotate_images(query_ht, rot, lat=lat, mask=mask, fast_rotate=fast_rotate)
+    else:
+        query_rot_images = query_images
 
     if not fast_translate:
         query_expanded = query_rot_images.unsqueeze(0).unsqueeze(2)
@@ -176,13 +182,20 @@ def optimize_theta_trans_chunked(ref_images, query_images, trans, rot, chunk_siz
     best_corr = torch.full((N,), float('-inf'), device=device)
     best_indices = torch.zeros((N, 3), dtype=torch.long, device=device)
     
+    # Pre-compute rotated query images
+    lat = Lattice(query_images.shape[1]+1)
+    mask = lat.get_circular_mask((query_images.shape[1]) // 2)
+    query_ht = fft.ht2_center(query_images)
+    query_ht = fft.symmetrize_ht(query_ht)
+    query_rot_images = rotate_images(query_ht, rot, lat=lat, mask=mask, fast_rotate=fast_rotate)
+    
     # Process reference images in chunks
     for chunk_start in range(0, M, chunk_size):
         chunk_end = min(chunk_start + chunk_size, M)
         chunk_refs = ref_images[chunk_start:chunk_end]
         
         # Get correlations for this chunk
-        chunk_corr = optimize_theta_trans(chunk_refs, query_images, trans, rot, fast_rotate, fast_translate, max_trans=14).transpose(0,1)
+        chunk_corr = optimize_theta_trans(chunk_refs, query_rot_images, trans, rot, fast_rotate, fast_translate, max_trans=14).transpose(0,1)
         # chunk_corr shape: N x R x chunk_size x T
         
         # Find best correlations in this chunk
