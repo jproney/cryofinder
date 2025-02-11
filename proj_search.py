@@ -153,7 +153,7 @@ def optimize_theta_trans(ref_images, query_images, trans, rot, fast_rotate=False
         start = (D - max_trans) // 2
         end = start + max_trans
         pairwise_corr = full_corr[..., start:end, start:end] # M x N x R x 30 x 30
-        pairwise_corr = pairwise_corr.view(pairwise_corr.shape[:-2] + (-1,)).permute([0,1,3,2])
+        pairwise_corr = pairwise_corr.reshape(pairwise_corr.shape[:-2] + (-1,)).permute([0,1,3,2])
         
     return pairwise_corr
 
