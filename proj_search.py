@@ -141,7 +141,12 @@ def optimize_theta_trans(ref_images, query_images, trans, rot, fast_rotate=False
         cross_power = query_expanded * ref_expanded # M x N x R x D x D
 
         # Convert to real space to find optimal alignment
-        pairwise_corr = fft.iht2_center(cross_power[...,:-1,:-1]) # M x N x R x D x D
+        # Convert to real space and extract central 30x30 region
+        full_corr = fft.iht2_center(cross_power[...,:-1,:-1]) # M x N x R x D x D
+        D = full_corr.shape[-1]
+        start = (D - 30) // 2
+        end = start + 30
+        pairwise_corr = full_corr[..., start:end, start:end] # M x N x R x 30 x 30
         pairwise_corr = pairwise_corr / (torch.std(query_images.unsqueeze(0).unsqueeze(2), dim=(-1,-2), keepdim=True) * torch.std(ref_images.unsqueeze(1).unsqueeze(2), dim=(-1,-2), keepdim=True))
         pairwise_corr = pairwise_corr.view(pairwise_corr.shape[:-2] + (-1,)).permute([0,1,3,2])
         
