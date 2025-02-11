@@ -142,6 +142,7 @@ def optimize_theta_trans(ref_images, query_images, trans, rot, fast_rotate=False
 
         # Convert to real space to find optimal alignment
         pairwise_corr = fft.iht2_center(cross_power[...,:-1,:-1]) # M x N x R x D x D
+        pairwise_corr = (pairwise_corr - pairwise_corr.mean(dim=(-1,-2), keepdim=True)) / pairwise_corr.std(dim=(-1,-2), keepdim=True) # peak-to-sidelobe ratio
         pairwise_corr = pairwise_corr.view(pairwise_corr.shape[:-2] + (-1,)).permute([0,1,3,2])
         
     return pairwise_corr
