@@ -188,7 +188,7 @@ def optimize_theta_trans(ref_images, query_images, trans, rot, fast_rotate=False
             print(maxcorr.shape)
             print(best_indices.shape)
 
-            return maxcorr.max(dim=-2), best_indices
+            return maxcorr.amax(dim=-2), best_indices
 
         else:
             pairwise_corr = pairwise_corr.reshape(pairwise_corr.shape[:-2] + (-1,)).permute([0,1,3,2])
