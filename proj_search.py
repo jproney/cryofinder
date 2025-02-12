@@ -198,6 +198,9 @@ def optimize_theta_trans(ref_images, query_images, trans, rot, fast_rotate=False
                                                     pairwise_corr.shape[3]   # rotations
                                                     )), dim=1)
 
+    print(best_corr.shape)
+    print(best_indices.shape)
+
     return best_corr, best_indices
 
 def optimize_theta_trans_chunked(ref_images, query_images, trans, rot, chunk_size=100, fast_rotate=False, fast_translate=False, refine_fast_translate=True, max_trans=14):
