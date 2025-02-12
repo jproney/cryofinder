@@ -189,7 +189,7 @@ def optimize_theta_trans(ref_images, query_images, trans, rot, fast_rotate=False
 
 
     # Find best correlations in this chunk
-    best_corr, best_indices = pairwise_corr.reshape(pairwise_corr.shape[0], -1).max(dim=-1)
+    best_corr, best_indices = pairwise_corr.transpose(0,1).reshape(pairwise_corr.shape[0], -1).max(dim=-1)
 
     # Convert flattened indices to rotation, reference, translation indices
     best_indices = torch.stack(torch.unravel_index(best_indices,
@@ -237,7 +237,7 @@ def optimize_theta_trans_chunked(ref_images, query_images, trans, rot, chunk_siz
         chunk_refs = ref_images[chunk_start:chunk_end]
         
         # Get correlations for this chunk
-        chunk_best_vals, chunk_best_indices = optimize_theta_trans(chunk_refs, query_rot_images, trans, rot, fast_rotate, fast_translate, refine_fast_translate=refine_fast_translate, max_trans=max_trans, mask=mask, lat=lat, pre_rotated=True).transpose(0,1)        
+        chunk_best_vals, chunk_best_indices = optimize_theta_trans(chunk_refs, query_rot_images, trans, rot, fast_rotate, fast_translate, refine_fast_translate=refine_fast_translate, max_trans=max_trans, mask=mask, lat=lat, pre_rotated=True)        
 
         # Adjust reference indices to account for chunking
         chunk_best_indices[:,0] += chunk_start
