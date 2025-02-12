@@ -161,6 +161,7 @@ def optimize_theta_trans(ref_images, query_images, trans, rot, fast_rotate=False
 
         # after finding the pairs, refine translation with precise alignment
         if refine_fast_translate:
+            pairwise_corr = pairwise_corr.transpose(0,1)
             maxcorr = pairwise_corr.amax(dim=(-1,-2, -3))
             bestref = ref_ht[maxcorr.argmax(dim=0)] # dim N
 
@@ -193,10 +194,10 @@ def optimize_theta_trans(ref_images, query_images, trans, rot, fast_rotate=False
             pairwise_corr = pairwise_corr.reshape(pairwise_corr.shape[:-2] + (-1,)).permute([0,1,3,2])
 
 
-    print(pairwise_corr.shape)
+    pairwise_corr = pairwise_corr.transpose(0,1)
 
     # Find best correlations in this chunk
-    best_corr, best_indices = pairwise_corr.transpose(0,1).reshape(pairwise_corr.shape[0], -1).max(dim=-1)
+    best_corr, best_indices = pairwise_corr.reshape(pairwise_corr.shape[0], -1).max(dim=-1)
 
     # Convert flattened indices to rotation, reference, translation indices
     best_indices = torch.stack(torch.unravel_index(best_indices,
