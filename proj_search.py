@@ -161,7 +161,7 @@ def optimize_theta_trans(ref_images, query_images, trans, rot, fast_rotate=False
 
         # after finding the pairs, refine translation with precise alignment
         if refine_fast_translate:
-            maxcorr = pairwise_corr.max(dim=(-1,-2, -3))
+            maxcorr = pairwise_corr.amax(dim=(-1,-2, -3))
             bestref = ref_ht[maxcorr.argmax(dim=0)]
 
             ref_trans_images = translate_images(bestref, trans, lat, mask).unsqueeze(2) # N x T x 1 x D x D
