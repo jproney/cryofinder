@@ -176,7 +176,7 @@ def optimize_theta_trans(ref_images, query_images, trans, rot, fast_rotate=False
             best_corr, best_indices = pairwise_corr.reshape(pairwise_corr.shape[0], -1).max(dim=-1)
 
             # Convert flattened indices to rotation, reference, translation indices
-            best_indices = torch.stack([bestref] + torch.unravel_index(best_indices,
+            best_indices = torch.stack((bestref,) + torch.unravel_index(best_indices,
                                                             (pairwise_corr.shape[1],  # translations
                                                             pairwise_corr.shape[2]   # rotations
                                                             )), dim=1)
