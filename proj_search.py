@@ -162,7 +162,7 @@ def optimize_theta_trans(ref_images, query_images, trans, rot, fast_rotate=False
         # after finding the pairs, refine translation with precise alignment
         if refine_fast_translate:
             maxcorr = pairwise_corr.amax(dim=(-1,-2, -3))
-            bestref = ref_ht[maxcorr.argmax(dim=0)]
+            bestref = ref_ht[maxcorr.argmax(dim=0)] # dim N
 
             ref_trans_images = translate_images(bestref, trans, lat, mask).unsqueeze(2) # N x T x 1 x D x D
 
@@ -172,15 +172,13 @@ def optimize_theta_trans(ref_images, query_images, trans, rot, fast_rotate=False
             pairwise_corr = (query_expanded * ref_trans_images).sum(dim=(-1,-2)) / (
                 torch.std(query_expanded, dim=(-1,-2)) * torch.std(ref_trans_images, dim=(-1,-2))) # N x T x R
 
-            print(pairwise_corr.shape)
 
             # Find best correlations in this chunk
             best_corr, best_indices = pairwise_corr.reshape(pairwise_corr.shape[0], -1).max(dim=-1)
 
-            print(best_indices.shape)
 
             # Convert flattened indices to rotation, reference, translation indices
-            best_indices = torch.stack((bestref,) + torch.unravel_index(best_indices,
+            best_indices = torch.stack((maxcorr.argmax(dim=0),) + torch.unravel_index(best_indices,
                                                             (pairwise_corr.shape[1],  # translations
                                                             pairwise_corr.shape[2]   # rotations
                                                             )), dim=1)
@@ -194,7 +192,7 @@ def optimize_theta_trans(ref_images, query_images, trans, rot, fast_rotate=False
     best_corr, best_indices = pairwise_corr.reshape(pairwise_corr.shape[0], -1).max(dim=-1)
 
     # Convert flattened indices to rotation, reference, translation indices
-    best_indices = torch.stack(torch.unravel_index(pairwise_corr,
+    best_indices = torch.stack(torch.unravel_index(best_indices,
                                                     (pairwise_corr.shape[1],  # references (chunk_size)
                                                     pairwise_corr.shape[2],  # translations
                                                     pairwise_corr.shape[3]   # rotations
