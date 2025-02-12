@@ -140,14 +140,19 @@ def optimize_theta_trans(ref_images, query_images, trans, rot, fast_rotate=False
         pairwise_corr = (query_expanded * ref_expanded).sum(dim=(-1,-2)) / (
             torch.std(query_expanded, dim=(-1,-2)) * torch.std(ref_expanded, dim=(-1,-2)))
     else:
-        query_expanded = query_rot_images.unsqueeze(0) # 1 x N x R x D x D
-        ref_expanded = ref_ht.unsqueeze(1).unsqueeze(2) # M x 1 x 1 x D x D
+        #frequency filter mask
+        h, w = query_rot_images.shape[-2:]
+        y, x = torch.meshgrid(torch.linspace(-1, 1, h), torch.linspace(-1, 1, w), indexing='ij')
+        radius = torch.sqrt(x**2 + y**2)
+
+        query_expanded = query_rot_images.unsqueeze(0)  * (radius < .15) # 1 x N x R x D x D
+        ref_expanded = ref_ht.unsqueeze(1).unsqueeze(2)  * (radius < .15) # M x 1 x 1 x D x D
 
         # Compute cross power spectrum in Hartley space
-        cross_power = query_expanded * ref_expanded # M x N x R x D x D
+        cross_power = query_expanded * ref_expanded / (torch.abs(query_expanded * ref_expanded) + 1e-8) # M x N x R x D x D
 
         # Convert to real space to find optimal alignment
-        # Convert to real space and extract central 30x30 region
+        # Convert to real space and extract central region
         full_corr = fft.iht2_center(cross_power[...,:-1,:-1]) # M x N x R x D x D
         D = full_corr.shape[-1]
         start = (D - max_trans) // 2
