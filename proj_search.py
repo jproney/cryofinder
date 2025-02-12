@@ -171,12 +171,29 @@ def optimize_theta_trans(ref_images, query_images, trans, rot, fast_rotate=False
             # Compute normalized cross correlation in hartley space
             pairwise_corr = (query_expanded * ref_trans_images).sum(dim=(-1,-2)) / (
                 torch.std(query_expanded, dim=(-1,-2)) * torch.std(ref_trans_images, dim=(-1,-2)))
+            
+            # Convert flattened indices to rotation, reference, translation indices
+            best_indices = torch.stack([bestref] + torch.unravel_index(pairwise_corr,
+                                                            (pairwise_corr.shape[1],  # translations
+                                                            pairwise_corr.shape[2]   # rotations
+                                                            )), dim=1)
+            return maxcorr, bestref
 
         else:
             pairwise_corr = pairwise_corr.reshape(pairwise_corr.shape[:-2] + (-1,)).permute([0,1,3,2])
 
-        
-    return pairwise_corr
+
+        # Find best correlations in this chunk
+        best_corr, best_indices = pairwise_corr.reshape(pairwise_corr.shape[0], -1).max(dim=-1)
+
+        # Convert flattened indices to rotation, reference, translation indices
+        best_indices = torch.stack(torch.unravel_index(pairwise_corr,
+                                                        (pairwise_corr.shape[1],  # references (chunk_size)
+                                                        pairwise_corr.shape[2],  # translations
+                                                        pairwise_corr.shape[3]   # rotations
+                                                        )), dim=1)
+    
+    return best_corr, best_indices
 
 def optimize_theta_trans_chunked(ref_images, query_images, trans, rot, chunk_size=100, fast_rotate=False, fast_translate=False, refine_fast_translate=True, max_trans=14):
     """
@@ -215,19 +232,8 @@ def optimize_theta_trans_chunked(ref_images, query_images, trans, rot, chunk_siz
         chunk_refs = ref_images[chunk_start:chunk_end]
         
         # Get correlations for this chunk
-        chunk_corr = optimize_theta_trans(chunk_refs, query_rot_images, trans, rot, fast_rotate, fast_translate, refine_fast_translate=refine_fast_translate, max_trans=max_trans, mask=mask, lat=lat, pre_rotated=True).transpose(0,1)
-        # chunk_corr shape: N x R x chunk_size x T
-        
-        # Find best correlations in this chunk
-        chunk_best_vals, chunk_best_idxs = chunk_corr.reshape(N, -1).max(dim=-1)
-        
-        # Convert flattened indices to rotation, reference, translation indices
-        chunk_best_indices = torch.stack(torch.unravel_index(chunk_best_idxs,
-                                                           (chunk_corr.shape[1],  # references (chunk_size)
-                                                            chunk_corr.shape[2],  # translations
-                                                            chunk_corr.shape[3]   # rotations
-                                                           )), dim=1)
-        
+        chunk_best_vals, chunk_best_indices = optimize_theta_trans(chunk_refs, query_rot_images, trans, rot, fast_rotate, fast_translate, refine_fast_translate=refine_fast_translate, max_trans=max_trans, mask=mask, lat=lat, pre_rotated=True).transpose(0,1)        
+
         # Adjust reference indices to account for chunking
         chunk_best_indices[:,0] += chunk_start
         
