@@ -186,16 +186,16 @@ def optimize_theta_trans(ref_images, query_images, trans, rot, fast_rotate=False
             pairwise_corr = pairwise_corr.reshape(pairwise_corr.shape[:-2] + (-1,)).permute([0,1,3,2])
 
 
-        # Find best correlations in this chunk
-        best_corr, best_indices = pairwise_corr.reshape(pairwise_corr.shape[0], -1).max(dim=-1)
+    # Find best correlations in this chunk
+    best_corr, best_indices = pairwise_corr.reshape(pairwise_corr.shape[0], -1).max(dim=-1)
 
-        # Convert flattened indices to rotation, reference, translation indices
-        best_indices = torch.stack(torch.unravel_index(pairwise_corr,
-                                                        (pairwise_corr.shape[1],  # references (chunk_size)
-                                                        pairwise_corr.shape[2],  # translations
-                                                        pairwise_corr.shape[3]   # rotations
-                                                        )), dim=1)
-    
+    # Convert flattened indices to rotation, reference, translation indices
+    best_indices = torch.stack(torch.unravel_index(pairwise_corr,
+                                                    (pairwise_corr.shape[1],  # references (chunk_size)
+                                                    pairwise_corr.shape[2],  # translations
+                                                    pairwise_corr.shape[3]   # rotations
+                                                    )), dim=1)
+
     return best_corr, best_indices
 
 def optimize_theta_trans_chunked(ref_images, query_images, trans, rot, chunk_size=100, fast_rotate=False, fast_translate=False, refine_fast_translate=True, max_trans=14):
