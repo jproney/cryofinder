@@ -163,7 +163,7 @@ def optimize_theta_trans(ref_images, query_images, trans, rot, fast_rotate=False
         if refine_fast_translate:
             pairwise_corr = pairwise_corr.transpose(0,1)
             maxcorr = pairwise_corr.amax(dim=(-1,-2, -3))
-            bestref = ref_ht[maxcorr.argmax(dim=0)] # dim N
+            bestref = ref_ht[maxcorr.argmax(dim=1)] # dim N
 
             ref_trans_images = translate_images(bestref, trans, lat, mask).unsqueeze(2) # N x T x 1 x D x D
 
@@ -205,9 +205,6 @@ def optimize_theta_trans(ref_images, query_images, trans, rot, fast_rotate=False
                                                     pairwise_corr.shape[2],  # translations
                                                     pairwise_corr.shape[3]   # rotations
                                                     )), dim=1)
-
-    print(best_corr.shape)
-    print(best_indices.shape)
 
     return best_corr, best_indices
 
