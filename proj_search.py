@@ -161,8 +161,8 @@ def optimize_theta_trans(ref_images, query_images, trans, rot, fast_rotate=False
 
         # after finding the pairs, refine translation with precise alignment
         if refine_fast_translate:
-            pairwise_corr = pairwise_corr.transpose(0,1)
-            maxcorr = pairwise_corr.amax(dim=(-1,-2, -3))
+            pairwise_corr = pairwise_corr.transpose(0,1)  # N x M x R x 30 x 30
+            maxcorr = pairwise_corr.amax(dim=(-1,-2, -3)) # N x M
             bestref = ref_ht[maxcorr.argmax(dim=1)] # dim N
 
             ref_trans_images = translate_images(bestref, trans, lat, mask).unsqueeze(2) # N x T x 1 x D x D
@@ -179,7 +179,7 @@ def optimize_theta_trans(ref_images, query_images, trans, rot, fast_rotate=False
 
 
             # Convert flattened indices to rotation, reference, translation indices
-            best_indices = torch.stack((maxcorr.argmax(dim=0),) + torch.unravel_index(best_indices,
+            best_indices = torch.stack((maxcorr.argmax(dim=1),) + torch.unravel_index(best_indices,
                                                             (pairwise_corr.shape[1],  # translations
                                                             pairwise_corr.shape[2]   # rotations
                                                             )), dim=1)
