@@ -164,22 +164,13 @@ def optimize_theta_trans(ref_images, query_images, trans, rot, fast_rotate=False
             maxcorr = pairwise_corr.amax(dim=(-1,-2, -3))
             bestref = ref_ht[maxcorr.argmax(dim=0)]
 
-            print(bestref.shape)
-
             ref_trans_images = translate_images(bestref, trans, lat, mask).unsqueeze(2) # N x T x 1 x D x D
-
-            print(ref_trans_images.shape)
 
             query_expanded = query_rot_images.unsqueeze(1) # N x T x 1 x D x D
 
-            print(query_expanded.shape)
-
             # Compute normalized cross correlation in hartley space
-            pairwise_corr = (query_expanded * ref_expanded).sum(dim=(-1,-2)) / (
+            pairwise_corr = (query_expanded * ref_trans_images).sum(dim=(-1,-2)) / (
                 torch.std(query_expanded, dim=(-1,-2)) * torch.std(ref_expanded, dim=(-1,-2)))
-
-
-
 
         else:
             pairwise_corr = pairwise_corr.reshape(pairwise_corr.shape[:-2] + (-1,)).permute([0,1,3,2])
