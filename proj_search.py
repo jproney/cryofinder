@@ -166,14 +166,17 @@ def optimize_theta_trans(ref_images, query_images, trans, rot, fast_rotate=False
 
             ref_trans_images = translate_images(bestref, trans, lat, mask).unsqueeze(2) # N x T x 1 x D x D
 
-            query_expanded = query_rot_images.unsqueeze(1) # N x T x 1 x D x D
+            query_expanded = query_rot_images.unsqueeze(1) # N x 1 x R x D x D
 
             # Compute normalized cross correlation in hartley space
             pairwise_corr = (query_expanded * ref_trans_images).sum(dim=(-1,-2)) / (
-                torch.std(query_expanded, dim=(-1,-2)) * torch.std(ref_trans_images, dim=(-1,-2)))
-            
+                torch.std(query_expanded, dim=(-1,-2)) * torch.std(ref_trans_images, dim=(-1,-2))) # N x T x R
+
+            # Find best correlations in this chunk
+            best_corr, best_indices = pairwise_corr.reshape(pairwise_corr.shape[0], -1).max(dim=-1)
+
             # Convert flattened indices to rotation, reference, translation indices
-            best_indices = torch.stack([bestref] + torch.unravel_index(pairwise_corr,
+            best_indices = torch.stack([bestref] + torch.unravel_index(best_indices,
                                                             (pairwise_corr.shape[1],  # translations
                                                             pairwise_corr.shape[2]   # rotations
                                                             )), dim=1)
