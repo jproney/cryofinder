@@ -95,7 +95,7 @@ def rotate_images(images, rot, lat=None, mask=None, input_hartley=True, output_h
 
     return rot_images
 
-def optimize_theta_trans(ref_images, query_images, trans, rot, fast_rotate=False, fast_translate=False, pre_rotated=False, max_trans=14, lat=None, mask=None):
+def optimize_theta_trans(ref_images, query_images, trans, rot, fast_rotate=False, fast_translate=False, refine_fast_translate=True, pre_rotated=False, max_trans=14, lat=None, mask=None):
     """
     query_image - shape N x D x D, real space image
     ref_images - shape M x D x D, real space image
@@ -158,11 +158,26 @@ def optimize_theta_trans(ref_images, query_images, trans, rot, fast_rotate=False
         start = (D - max_trans) // 2
         end = start + max_trans
         pairwise_corr = full_corr[..., start:end, start:end] # M x N x R x 30 x 30
-        pairwise_corr = pairwise_corr.reshape(pairwise_corr.shape[:-2] + (-1,)).permute([0,1,3,2])
+
+        # after finding the pairs, refine translation with precise alignment
+        if refine_fast_translate:
+            maxcorr = pairwise_corr.max(dim=(-1,-2, -3))
+            bestref = ref_ht[maxcorr.argmax(dim=0)]
+
+            ref_trans_images = translate_images(bestref, trans, lat, mask).unsqueeze(2) # N x T x 1 x D x D
+            query_expanded = query_rot_images.unsqueeze(1) # N x T x 1 x D x D
+
+            # Compute normalized cross correlation in hartley space
+            pairwise_corr = (query_expanded * ref_expanded).sum(dim=(-1,-2)) / (
+                torch.std(query_expanded, dim=(-1,-2)) * torch.std(ref_expanded, dim=(-1,-2)))
+
+        else:
+            pairwise_corr = pairwise_corr.reshape(pairwise_corr.shape[:-2] + (-1,)).permute([0,1,3,2])
+
         
     return pairwise_corr
 
-def optimize_theta_trans_chunked(ref_images, query_images, trans, rot, chunk_size=100, fast_rotate=False, fast_translate=False, max_trans=14):
+def optimize_theta_trans_chunked(ref_images, query_images, trans, rot, chunk_size=100, fast_rotate=False, fast_translate=False, refine_fast_translate=True, max_trans=14):
     """
     Memory-efficient version that processes reference images in chunks.
     
@@ -199,7 +214,7 @@ def optimize_theta_trans_chunked(ref_images, query_images, trans, rot, chunk_siz
         chunk_refs = ref_images[chunk_start:chunk_end]
         
         # Get correlations for this chunk
-        chunk_corr = optimize_theta_trans(chunk_refs, query_rot_images, trans, rot, fast_rotate, fast_translate, max_trans=max_trans, mask=mask, lat=lat, pre_rotated=True).transpose(0,1)
+        chunk_corr = optimize_theta_trans(chunk_refs, query_rot_images, trans, rot, fast_rotate, fast_translate, refine_fast_translate=refine_fast_translate, max_trans=max_trans, mask=mask, lat=lat, pre_rotated=True).transpose(0,1)
         # chunk_corr shape: N x R x chunk_size x T
         
         # Find best correlations in this chunk
