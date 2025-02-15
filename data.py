@@ -26,7 +26,7 @@ def corrupt_with_ctf(batch_ptcls, batch_ctf_params, std1, std2, freqs, b_factor=
 
 class ContrastiveProjectionDataset(Dataset):
     def __init__(self, images, phis, thetas, object_ids, pos_angle_threshold=30, snr1=[1.4], snr2=[0.5], 
-                 dfu=[10000], dfv=[10500], df_std=[1000], Apix=[1.0], ang=[0.0], kv=[300], cs=[2.7], wgh=[0.1], ps=[0.0]):
+                 dfu=[10000], dfv=[10500], df_std=[1000], Apix=5.0, ang=[0.0], kv=300, cs=2.7, wgh=[0.1], ps=[0.0]):
         """
         Dataset for contrastive learning of image projections.
         
