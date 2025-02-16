@@ -17,11 +17,13 @@ import torch.utils.data as data
 
 from cryodrgn import lie_tools, so3_grid, utils
 from cryodrgn import mrcfile as mrc
+from scipy.ndimage import zoom
 
 
 def parse_args(parser):
     parser.add_argument('mrc', type=os.path.abspath, help='Input volume')
     parser.add_argument('outstack', type=os.path.abspath, help='Output projection stack (.mrcs)')
+    parser.add_argument('--apix', type=float, help='Pixel size in Angstroms')
 
     group = parser.add_argument_group('Required, mutually exclusive, projection schemes')
     group = group.add_mutually_exclusive_group(required=True)
@@ -223,7 +225,7 @@ def main(args):
         projector.lattice = projector.lattice.to(device)
         projector.vol = projector.vol.to(device)
 
-    pos_angs = None
+    pose_angs = None
     # generate rotation matrices
     if args.healpy_grid is not None:
         quats = so3_grid.grid_SO3(args.healpy_grid).astype(np.float32)
@@ -291,6 +293,29 @@ def main(args):
         if tran is not None:
             projection = projector.translate(projection, tran)
         out_imgs[i * args.b: (i+1) * args.b] = projection.cpu().numpy().astype(np.float32)
+
+    # Downsample to 5 angstroms per pixel if apix is provided
+    if args.apix:
+        current_size = out_imgs.shape[-1]
+        target_scale = args.apix / 5.0  # Scale factor to get to 5A/px
+        
+        # Resize using numpy (maintain float32 dtype)
+        out_imgs = zoom(out_imgs, (1, target_scale, target_scale), order=1)
+
+    # Pad or crop to 128x128
+    current_size = out_imgs.shape[-1]
+    target_size = 128
+    
+    if current_size > target_size:
+        # Crop to 128x128
+        start = (current_size - target_size) // 2
+        out_imgs = out_imgs[:, start:start+target_size, start:start+target_size]
+    elif current_size < target_size:
+        # Pad to 128x128
+        pad_width = ((0, 0), 
+                    ((target_size - current_size)//2, (target_size - current_size+1)//2),
+                    ((target_size - current_size)//2, (target_size - current_size+1)//2))
+        out_imgs = np.pad(out_imgs, pad_width, mode='constant', constant_values=0)
 
     t2 = time.time()
     print(f'Projected {poses.N} images in {t2-t1}s ({(t2-t1) / (poses.N)}s per image)')
