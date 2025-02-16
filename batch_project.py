@@ -1,27 +1,23 @@
 import os
 import argparse
 import subprocess
+import pandas as pd
 
 parser = argparse.ArgumentParser(description='Batch process .map files with project3d.py')
-parser.add_argument('input_dir', help='Directory containing .map files')
+parser.add_argument('input_file', help='Directory containing .map files')
 parser.add_argument('output_dir', help='Directory for output files')
 parser.add_argument('--healpy-grid', type=int, default=2, help='Resolution level for healpy grid')
 args = parser.parse_args()
 
+dat = pd.read_csv(args.input_file)
+
 # Create output directory if it doesn't exist
 os.makedirs(args.output_dir, exist_ok=True)
-
-# Get list of .map files
-map_files = [f for f in os.listdir(args.input_dir) if f.endswith('.map')]
-
-if not map_files:
-    print(f"No .map files found in {args.input_dir}")
-    exit()
     
-print(f"Found {len(map_files)} .map files")
+print(f"Found {len(dat['emdb_map_file'])} .map files")
 
 # Process each map file
-for map_file in map_files:
+for map_file, apix in zip(dat['emdb_map_file'], dat['raw_pixel_size_angstrom']):
     input_path = os.path.join(args.input_dir, map_file)
     basename = os.path.splitext(map_file)[0]
     
@@ -41,7 +37,7 @@ for map_file in map_files:
         input_path,
         outstack,
         '--apix',
-        '5',
+        str(apix),
         '--healpy-so2-grid', 
         str(args.healpy_grid),
         '--out-pose',
