@@ -223,12 +223,14 @@ def main(args):
         projector.lattice = projector.lattice.to(device)
         projector.vol = projector.vol.to(device)
 
+    pos_angs = None
     # generate rotation matrices
     if args.healpy_grid is not None:
         quats = so3_grid.grid_SO3(args.healpy_grid).astype(np.float32)
         rots = lie_tools.quaternions_to_SO3(torch.from_numpy(quats)).to(device)
         print(f'Generating {rots.shape[0]} rotations at resolution level {args.healpy_grid}')
     elif args.healpy_so2_grid is not None:
+        pose_angs = so3_grid.grid_s2(args.healpy_so2_grid)
         quats = so3_grid.s2_grid_SO3(args.healpy_so2_grid).astype(np.float32)
         rots = lie_tools.quaternions_to_SO3(torch.from_numpy(quats)).to(device)
         print(f'Generating {rots.shape[0]} SO2 rotations at resolution level {args.healpy_so2_grid}')    
@@ -299,16 +301,19 @@ def main(args):
         out_imgs.tofile(f)  # this syntax avoids cryodrgn.mrc.write()'s call to .tobytes() which copies the array in memory
 
     print(f'Saving {args.out_pose}')
-    if type(poses.rots) == torch.Tensor:
-        poses.rots = poses.rots.cpu().numpy().astype(np.float32)
-    poses.rots = poses.rots.astype(np.float32)
-    if poses.trans is not None:
-        if type(poses.trans) == torch.Tensor:
-            poses.trans = poses.trans.cpu().numpy().astype(np.float32)
-        poses.trans = poses.trans.astype(np.float32)
-        utils.save_pkl((poses.rots, poses.trans), args.out_pose)
+    if pose_angs is not None:
+        utils.save_pkl(pose_angs, args.out_pose)
     else:
-        utils.save_pkl((poses.rots), args.out_pose)
+        if type(poses.rots) == torch.Tensor:
+            poses.rots = poses.rots.cpu().numpy().astype(np.float32)
+        poses.rots = poses.rots.astype(np.float32)
+        if poses.trans is not None:
+            if type(poses.trans) == torch.Tensor:
+                poses.trans = poses.trans.cpu().numpy().astype(np.float32)
+            poses.trans = poses.trans.astype(np.float32)
+            utils.save_pkl((poses.rots, poses.trans), args.out_pose)
+        else:
+            utils.save_pkl((poses.rots), args.out_pose)
 
     if args.out_png:
         print(f'Saving {args.out_png}')
