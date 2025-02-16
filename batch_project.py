@@ -7,6 +7,8 @@ parser = argparse.ArgumentParser(description='Batch process .map files with proj
 parser.add_argument('input_file', help='csv with the names of volumes and metadata')
 parser.add_argument('input_dir', help='Directory containing .map files')
 parser.add_argument('output_dir', help='Directory for output files')
+parser.add_argument('--start', type=int, default=0, help='Lowest index to process')
+parser.add_argument('--end', type=int, default=10000, help='Highest index to process')
 parser.add_argument('--healpy-grid', type=int, default=2, help='Resolution level for healpy grid')
 args = parser.parse_args()
 
@@ -14,8 +16,11 @@ dat = pd.read_csv(args.input_file)
 
 # Create output directory if it doesn't exist
 os.makedirs(args.output_dir, exist_ok=True)
-    
-print(f"Found {len(dat['emdb_map_file'])} .map files")
+
+maplist = dat['emdb_map_file'][args.start:args.end]
+apixlist = dat['raw_pixel_size_angstrom'][args.start:args.end]
+
+print(f"Found {len(maplist)} .map files")
 
 # Process each map file
 for map_file, apix in zip(dat['emdb_map_file'], dat['raw_pixel_size_angstrom']):
