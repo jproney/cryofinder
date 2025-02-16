@@ -40,7 +40,7 @@ for map_file in map_files:
         'project3d.py',
         input_path,
         outstack,
-        '--healpy-grid-so2-grid', 
+        '--healpy-so2-grid', 
         str(args.healpy_grid),
         '--out-pose',
         out_pose
