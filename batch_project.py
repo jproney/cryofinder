@@ -29,6 +29,11 @@ for map_file in map_files:
     outstack = os.path.join(args.output_dir, f"{basename}.mrcs")
     out_pose = os.path.join(args.output_dir, f"{basename}_pose.pkl")
     
+    # Skip if output files already exist
+    if os.path.exists(outstack) and os.path.exists(out_pose):
+        print(f"\nSkipping {map_file} - output files already exist")
+        continue
+    
     # Build command
     cmd = [
         'python', 
@@ -51,4 +56,3 @@ for map_file in map_files:
         continue
         
     print(f"Completed processing {map_file}")
-
