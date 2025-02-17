@@ -8,7 +8,7 @@
 #SBATCH --cpus-per-task=1             
 #SBATCH --partition=sched_cdrennan
 
-source /home/jamesron/.bashrc
+module load anaconda/2020.11
 conda activate cryodrgn
 cd /nobackup/users/jamesron/broeyjoey
 python batch_project.py /nobackup/users/jamesron/siren_maps.csv /nobackup/users/jamesron/raw_maps_07072023/ /nobackup/users/jamesron/projections --healpy-grid 2 --start $1 --end $2
