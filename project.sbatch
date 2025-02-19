@@ -7,6 +7,7 @@
 #SBATCH --ntasks=1              
 #SBATCH --cpus-per-task=1             
 #SBATCH --partition=sched_cdrennan
+#SBATCH --gres=gpu:1
 
 module load anaconda/2020.11
 conda activate cryodrgn

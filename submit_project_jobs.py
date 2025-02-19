@@ -1,6 +1,6 @@
 import os
 
-nmaps = len(open("../siren_naps.csv").readlines())
+nmaps = len(open("../siren_maps.csv").readlines())
 bsize = 100
 
 for i in range(0, nmaps, bsize):
