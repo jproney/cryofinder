@@ -1,5 +1,5 @@
 import torch
-import torch.nn.Functional as F
+import torch.nn.functional as F
 from torch.utils.data import Dataset
 from cryodrgn import ctf
 from cryodrgn.lattice import Lattice
