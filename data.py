@@ -80,7 +80,7 @@ class ContrastiveProjectionDataset(Dataset):
         self.mask = self.lat.get_circular_mask((images.shape[-1]) // 2)
 
         # prepare frequency lattice
-        freqs = torch.arange(-images.shape[-1]//2, images.shape[-1]//2) / (self.Apix[0] * images.shape[-1]//2)
+        freqs = torch.arange(-images.shape[-1]//2, images.shape[-1]//2) / (self.Apix * images.shape[-1]//2)
         x0, x1 = torch.meshgrid(freqs, freqs)
         self.freqs = torch.stack([x0.ravel(), x1.ravel()], dim=1)
 
