@@ -121,10 +121,10 @@ class ContrastiveProjectionDataset(Dataset):
         neg_mask = torch.logical_not(pos_mask)
 
         # Randomly select positive pair
-        pos_img = self.images[pos_mask][torch.randint(len(pos_mask.sum()), (1,)).item()]
+        pos_img = self.images[pos_mask][torch.randint(pos_mask.sum(), (1,)).item()]
         
         # Randomly select negative pair from different object
-        neg_img = self.images[neg_mask][torch.randint(len(neg_mask.sum()), (1,)).item()]
+        neg_img = self.images[neg_mask][torch.randint(neg_mask.sum(), (1,)).item()]
 
         # Sample CTF parameters for anchor, positive and negative images
         anchor_ctf = torch.zeros(11)
