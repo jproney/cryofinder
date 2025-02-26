@@ -150,11 +150,14 @@ class ContrastiveProjectionDataset(Dataset):
         # Randomly sample remaining CTF params for each image
         for i, param_list in enumerate([self.snr1, self.snr2, self.dfu, self.dfv, self.ang, self.kv,
                                       self.cs, self.wgh, self.ps]):
-            if param_list is not None:
+            if isinstance(param_list, list):
                 anchor_ctf[i] = param_list[torch.randint(len(param_list), (1,))]
                 pos_ctf[i] = param_list[torch.randint(len(param_list), (1,))]
                 neg_ctf[i] = param_list[torch.randint(len(param_list), (1,))]
-
+            else:
+                anchor_ctf[i] = param_list
+                pos_ctf[i] = param_list
+                neg_ctf[i] = param_list
         # Stack images and CTF params
         images = torch.stack([anchor_img, pos_img, neg_img], dim=0)
         ctf_params = torch.stack([anchor_ctf, pos_ctf, neg_ctf], dim=0)
