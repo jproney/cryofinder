@@ -117,22 +117,14 @@ class ContrastiveProjectionDataset(Dataset):
         anchor_obj = self.object_ids[idx]
         
         # Find valid positive pairs (same object, within angle threshold)
-        pos_candidates = torch.where(
-            (self.object_ids == anchor_obj) & 
-            (self.angular_dists[idx] <= self.pos_threshold) &
-            (torch.arange(len(self.images)) != idx)
-        )[0]
-        
+        pos_mask = (self.object_ids == anchor_obj) & (self.angular_dists[idx] <= self.pos_threshold) & (torch.arange(len(self.images)) != idx)
+        neg_mask = torch.logical_not(pos_mask)
+
         # Randomly select positive pair
-        pos_idx = pos_candidates[torch.randint(len(pos_candidates), (1,))]
-        pos_img = self.images[pos_idx]
-        pos_dist = self.angular_dists[idx, pos_idx]
+        pos_img = self.images[pos_mask][torch.randint(len(pos_mask.sum()), (1,)).item()]
         
         # Randomly select negative pair from different object
-        other_objs = list(set(self.obj_to_idx.keys()) - {anchor_obj.item()})
-        neg_obj = other_objs[torch.randint(len(other_objs), (1,))]
-        neg_idx = self.obj_to_idx[neg_obj][torch.randint(len(self.obj_to_idx[neg_obj]), (1,))]
-        neg_img = self.images[neg_idx]
+        neg_img = self.images[neg_mask][torch.randint(len(neg_mask.sum()), (1,)).item()]
 
         # Sample CTF parameters for anchor, positive and negative images
         anchor_ctf = torch.zeros(11)
