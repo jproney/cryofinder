@@ -90,14 +90,10 @@ class ContrastiveProjectionDataset(Dataset):
         N = len(self.phis)
         dists = torch.zeros((N, N))
         
-        # Convert to radians
-        phis = torch.deg2rad(self.phis)
-        thetas = torch.deg2rad(self.thetas)
-        
         # Compute 3D unit vectors for each orientation
-        x = torch.cos(phis) * torch.sin(thetas)
-        y = torch.sin(phis) * torch.sin(thetas)
-        z = torch.cos(thetas)
+        x = torch.cos(self.phis) * torch.sin(self.thetas)
+        y = torch.sin(self.phis) * torch.sin(self.thetas)
+        z = torch.cos(self.thetas)
         vectors = torch.stack([x, y, z], dim=1)
         
         # Compute angular distances using dot product
@@ -145,11 +141,11 @@ class ContrastiveProjectionDataset(Dataset):
 
         # Set D and pixel size (first two params)
         anchor_ctf[0] = self.images.shape[-1]
-        anchor_ctf[1] = self.pixel_size
+        anchor_ctf[1] = self.Apix
         pos_ctf[0] = self.images.shape[-1]
-        pos_ctf[1] = self.pixel_size
+        pos_ctf[1] = self.Apix
         neg_ctf[0] = self.images.shape[-1]
-        neg_ctf[1] = self.pixel_size
+        neg_ctf[1] = self.Apix
 
         # Randomly sample remaining CTF params for each image
         for i, param_list in enumerate([self.snr1, self.snr2, self.dfu, self.dfv, self.ang, self.kv,
