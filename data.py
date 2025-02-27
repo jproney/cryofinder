@@ -200,8 +200,9 @@ class ContrastiveProjectionDataset(Dataset):
         
         corrupted = translate_images(corrupted, translations, lat=lat, mask=mask, input_hartley=False, output_hartley=False).diagonal().permute([2,0,1])
         
-        
-        #corrupted = zoomed
+        # Reshape back to (batch, 3, D, D)
+        corrupted = corrupted.view(B, N, D, D)
+
         ctf_params = ctf_params.view(B, N, 9)
 
         corrupted = (corrupted - corrupted.mean(dim=(-1,-2), keepdim=True)) / corrupted.std(dim=(-1,-2), keepdim=True)
