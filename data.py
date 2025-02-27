@@ -162,7 +162,7 @@ class ContrastiveProjectionDataset(Dataset):
         return images, ctf_params, torch.tensor([anchor_obj, anchor_obj, neg_obj])
 
     @staticmethod
-    def collate_fn(batch, lat, mask, freqs, pclean=0.0):
+    def collate_fn(batch, lat, mask, freqs, pclean=1.0):
         """
         Custom collate function to corrupt batches of triplet images with CTF and noise
         Args:
