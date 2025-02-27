@@ -197,35 +197,35 @@ class ContrastiveProjectionDataset(Dataset):
         # Reshape back to (batch, 3, D, D)
         corrupted = corrupted.view(B, N, D, D)
 
-        # Apply random zoom and crop
-        #D = corrupted.shape[-1]
-        #max_zoom = 1.15  # 15% zoom
+        #Apply random zoom and crop
+        D = corrupted.shape[-1]
+        max_zoom = 1.15  # 15% zoom
         
-        # Generate random zoom factors for each image, 50% chance of no zoom
-        #zoom_mask = (torch.rand(B, N) > 0.5).float()  # 1 for zoom, 0 for no zoom
-        #zoom_factors = 1 + zoom_mask * (torch.rand(B, N) * (max_zoom - 1))  # Shape: (batch, 3)
+        #Generate random zoom factors for each image, 50% chance of no zoom
+        zoom_mask = (torch.rand(B, N) > 0.5).float()  # 1 for zoom, 0 for no zoom
+        zoom_factors = 1 + zoom_mask * (torch.rand(B, N) * (max_zoom - 1))  # Shape: (batch, 3)
 
-        # Initialize tensor for zoomed images
-        #zoomed = torch.zeros_like(corrupted)
+        #Initialize tensor for zoomed images
+        zoomed = torch.zeros_like(corrupted)
         
-        #for b in range(B):
-        #    for n in range(N):
-                # Calculate new size after zoom
-        #        zoom = zoom_factors[b,n]
-        #        new_size = int(D * zoom)
+        for b in range(B):
+           for n in range(N):
+               #Calculate new size after zoom
+               zoom = zoom_factors[b,n]
+               new_size = int(D * zoom)
                 
-                # Resize image
-        #        zoomed_img = F.interpolate(corrupted[b,n].unsqueeze(0).unsqueeze(0), 
-        #                                 size=(new_size, new_size),
-        #                                 mode='bilinear',
-        #                                 align_corners=False)
+               #Resize image
+               zoomed_img = F.interpolate(corrupted[b,n].unsqueeze(0).unsqueeze(0), 
+                                        size=(new_size, new_size),
+                                        mode='bilinear',
+                                        align_corners=False)
                 
-                # Calculate crop boundaries to get back to original size
-        #        start = (new_size - D) // 2
-        #        end = start + D
+               #Calculate crop boundaries to get back to original size
+               start = (new_size - D) // 2
+               end = start + D
                 
-                # Crop and store
-        #        zoomed[b,n] = zoomed_img[0,0,start:end,start:end]
+               #Crop and store
+               zoomed[b,n] = zoomed_img[0,0,start:end,start:end]
         
         #corrupted = zoomed
         ctf_params = ctf_params.view(B, N, 9)
