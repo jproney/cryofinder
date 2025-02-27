@@ -26,7 +26,7 @@ def corrupt_with_ctf(batch_ptcls, batch_ctf_params, snr1, snr2, freqs, b_factor=
 
 
 class ContrastiveProjectionDataset(Dataset):
-    def __init__(self, images, phis, thetas, object_ids, pos_angle_threshold=30, snr1=[1.4], snr2=[0.5], 
+    def __init__(self, images, phis, thetas, object_ids, pos_angle_threshold=30, pclean=0.3, snr1=[1.4], snr2=[0.5], 
                  dfu=[10000], dfv=[10500], df_std=[1000], Apix=5.0, ang=[0.0], kv=300, cs=2.7, wgh=[0.1], ps=[0.0]):
         """
         Dataset for contrastive learning of image projections.
@@ -65,6 +65,7 @@ class ContrastiveProjectionDataset(Dataset):
         self.cs = cs
         self.wgh = wgh
         self.ps = ps
+        self.pclean = pclean
 
         # Pre-compute angular distances between all pairs
         self.angular_dists = self._compute_angular_distances()
@@ -160,7 +161,7 @@ class ContrastiveProjectionDataset(Dataset):
         return images, ctf_params, pos_dist
 
     @staticmethod
-    def collate_fn(batch, lat, mask, freqs):
+    def collate_fn(batch, lat, mask, freqs, pclean=0.3):
         """
         Custom collate function to corrupt batches of triplet images with CTF and noise
         Args:
@@ -180,7 +181,8 @@ class ContrastiveProjectionDataset(Dataset):
         ctf_params = ctf_params.view(-1, 9)
 
         # Corrupt the full batch
-        corrupted = corrupt_with_ctf(images, ctf_params[:,2:], ctf_params[:,0], ctf_params[:,1], freqs)
+        if torch.rand(1).item() > pclean:
+            corrupted = corrupt_with_ctf(images, ctf_params[:,2:], ctf_params[:,0], ctf_params[:,1], freqs)
 
         # Apply random rotations and translations after corruption
         corrupted = corrupted.view(-1, D, D)
