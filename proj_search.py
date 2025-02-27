@@ -142,7 +142,7 @@ def optimize_theta_trans(ref_images, query_images, trans, rot, fast_rotate=False
     else:
         #frequency filter mask
         h, w = query_rot_images.shape[-2:]
-        y, x = torch.meshgrid(torch.linspace(-1, 1, h), torch.linspace(-1, 1, w), indexing='ij', device=ref_images.device)
+        y, x = torch.meshgrid(torch.linspace(-1, 1, h, device=ref_images.device), torch.linspace(-1, 1, w, device=ref_images.device), indexing='ij')
         radius = torch.sqrt(x**2 + y**2)
 
         query_expanded = query_rot_images.unsqueeze(0)  * (radius < .15) # 1 x N x R x D x D
