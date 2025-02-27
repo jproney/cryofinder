@@ -162,7 +162,7 @@ class ContrastiveProjectionDataset(Dataset):
         return images, ctf_params, torch.tensor([anchor_obj, anchor_obj, neg_obj])
 
     @staticmethod
-    def collate_fn(batch, lat, mask, freqs, pclean=1.0):
+    def collate_fn(batch, lat, mask, freqs, corrupt=False):
         """
         Custom collate function to corrupt batches of triplet images with CTF and noise
         Args:
@@ -182,8 +182,10 @@ class ContrastiveProjectionDataset(Dataset):
         ctf_params = ctf_params.view(-1, 9)
 
         # Corrupt part of batch
-        corrupt_mask = torch.rand(images.shape[0]) > pclean
-        corrupted = torch.where(corrupt_mask.view([-1,1,1]), corrupt_with_ctf(images, ctf_params[:,2:], ctf_params[:,0], ctf_params[:,1], freqs), images)
+        if corrupt:
+            corrupted = corrupt_with_ctf(images, ctf_params[:,2:], ctf_params[:,0], ctf_params[:,1], freqs)
+        else:
+            corrupted = images
 
 
         # Apply random rotations and translations after corruption
