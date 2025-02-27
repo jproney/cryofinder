@@ -237,7 +237,7 @@ def optimize_theta_trans_chunked(ref_images, query_images, trans, rot, chunk_siz
     best_indices = torch.zeros((N, 3), dtype=torch.long, device=device)
     
     # Pre-compute rotated query images
-    lat = Lattice(query_images.shape[1]+1)
+    lat = Lattice(query_images.shape[1]+1, device=device)
     mask = lat.get_circular_mask((query_images.shape[1]) // 2)
     query_ht = fft.ht2_center(query_images)
     query_ht = fft.symmetrize_ht(query_ht)
