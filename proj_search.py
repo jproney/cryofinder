@@ -244,9 +244,11 @@ def optimize_theta_trans_chunked(ref_images, query_images, trans, rot, chunk_siz
     query_rot_images = rotate_images(query_ht, rot, lat=lat, mask=mask, fast_rotate=fast_rotate)
     
     # Process reference images in chunks
+    global_offset = 0
     for cf in chunk_files:
 
         if cf is not None:
+            print(cf)
             data = pickle.load(open(cf, 'rb'))
             ref_images = data['images']
             M = ref_images.shape[0]
@@ -258,11 +260,13 @@ def optimize_theta_trans_chunked(ref_images, query_images, trans, rot, chunk_siz
             chunk_best_vals, chunk_best_indices = optimize_theta_trans(chunk_refs, query_rot_images, trans, rot, fast_rotate, fast_translate, refine_fast_translate=refine_fast_translate, max_trans=max_trans, mask=mask, lat=lat, pre_rotated=True)        
 
             # Adjust reference indices to account for chunking
-            chunk_best_indices[:,0] += chunk_start
+            chunk_best_indices[:,0] += chunk_start + global_offset
             
             # Update best results where this chunk had better correlations
             better_mask = chunk_best_vals > best_corr
             best_corr[better_mask] = chunk_best_vals[better_mask]
             best_indices[better_mask] = chunk_best_indices[better_mask]
 
-        return best_corr, best_indices
+        global_offset += M
+
+    return best_corr, best_indices
