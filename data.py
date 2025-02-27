@@ -233,4 +233,7 @@ class ContrastiveProjectionDataset(Dataset):
         #corrupted = zoomed
         ctf_params = ctf_params.view(B, N, 9)
 
+        corrupted = (corrupted - corrupted.mean(dim=(-1,-2), keepdim=True)) / corrupted.std(dim=(-1,-2), keepdim=True)
+    
+
         return corrupted, ctf_params, pos_dists
