@@ -161,7 +161,7 @@ class ContrastiveProjectionDataset(Dataset):
         return images, ctf_params, pos_dist
 
     @staticmethod
-    def collate_fn(batch, lat, mask, freqs, pclean=0.4):
+    def collate_fn(batch, lat, mask, freqs, pclean=0.0):
         """
         Custom collate function to corrupt batches of triplet images with CTF and noise
         Args:
