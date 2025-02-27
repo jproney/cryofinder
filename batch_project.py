@@ -25,8 +25,6 @@ print(f"Found {len(maplist)} .map files")
 # Process each map file
 for map_file, apix, dim in zip(dat['emdb_map_file'], dat['raw_pixel_size_angstrom'], dat['raw_box_size_pixel']):
 
-    if dim > 400:
-        continue
 
     input_path = os.path.join(args.input_dir, map_file)
     basename = os.path.splitext(map_file)[0]
