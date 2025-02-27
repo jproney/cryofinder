@@ -32,6 +32,6 @@ for i in range(0, len(emds), bsize):
 
     # Save to pickle file with range in filename
     outfile = f"/nobackup/users/jamesron/projection_chunks/chunk_{i}_{min(i + bsize, len(emds))}.pkl"
-    print()
+    print(outfile)
     with open(outfile, 'wb') as f:
         pickle.dump(chunk_data, f)
