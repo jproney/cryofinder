@@ -180,11 +180,10 @@ class ContrastiveProjectionDataset(Dataset):
         images = images.view(-1, D, D)
         ctf_params = ctf_params.view(-1, 9)
 
-        # Corrupt the full batch
-        if torch.rand(1).item() > pclean:
-            corrupted = corrupt_with_ctf(images, ctf_params[:,2:], ctf_params[:,0], ctf_params[:,1], freqs)
-        else:
-            corrupted = images
+        # Corrupt part of batch
+        corrupt_mask = torch.rand(images.shape[0]) > pclean
+        corrupted = torch.where(corrupt_mask, corrupt_with_ctf(images, ctf_params[:,2:], ctf_params[:,0], ctf_params[:,1], freqs), images)
+
 
         # Apply random rotations and translations after corruption
         corrupted = corrupted.view(-1, D, D)
