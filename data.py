@@ -26,8 +26,8 @@ def corrupt_with_ctf(batch_ptcls, batch_ctf_params, snr1, snr2, freqs, b_factor=
 
 
 class ContrastiveProjectionDataset(Dataset):
-    def __init__(self, images, phis, thetas, object_ids, pos_angle_threshold=30, pclean=0.3, snr1=[1.4], snr2=[0.5], 
-                 dfu=[10000], dfv=[10500], df_std=[1000], Apix=5.0, ang=[0.0], kv=300, cs=2.7, wgh=[0.1], ps=[0.0]):
+    def __init__(self, images, phis, thetas, object_ids, pos_angle_threshold=30, pclean=0.3, snr1=[1.5], 
+                 dfu=[10000], Apix=5.0, ang=0.0, kv=300, cs=2.7, wgh=0.1, ps=0.0):
         """
         Dataset for contrastive learning of image projections.
         
@@ -37,11 +37,8 @@ class ContrastiveProjectionDataset(Dataset):
             thetas: Tensor of shape N containing theta angles in degrees  
             object_ids: Tensor of shape N containing integer IDs for each 3D object
             pos_angle_threshold: Maximum angular difference in degrees for positive pairs
-            snr1: List of signal-to-noise ratios for structural noise
-            snr2: List of signal-to-noise ratios for shot noise
-            dfu: List of defocus values in Angstroms for u-axis
-            dfv: List of defocus values in Angstroms for v-axis 
-            df_std: List of standard deviations for defocus jittering
+            snr1: List of signal-to-noise ratios for structural noise. snr2 is snr1 / 3
+            dfu: List of defocus values in Angstroms for u-axis. dfv is dfu + 500
             Apix: Pixel size in Angstroms
             ang: Astigmatism angle in degrees
             kv: Microscope voltage in kV
@@ -55,10 +52,7 @@ class ContrastiveProjectionDataset(Dataset):
         self.object_ids = object_ids
         self.pos_threshold = pos_angle_threshold
         self.snr1 = snr1
-        self.snr2 = snr2
         self.dfu = dfu
-        self.dfv = dfv
-        self.df_std = df_std
         self.Apix = Apix
         self.ang = ang
         self.kv = kv
@@ -143,8 +137,9 @@ class ContrastiveProjectionDataset(Dataset):
         neg_ctf[0] = self.images.shape[-1]
         neg_ctf[1] = self.Apix
 
+
         # Randomly sample remaining CTF params for each image
-        for i, param_list in enumerate([self.snr1, self.snr2, self.dfu, self.dfv, self.ang, self.kv,
+        for i, param_list in enumerate([self.snr1, 0.0, self.dfu, 0.0, self.ang, self.kv,
                                       self.cs, self.wgh, self.ps]):
             if isinstance(param_list, list):
                 anchor_ctf[i] = param_list[torch.randint(len(param_list), (1,))]
@@ -154,6 +149,11 @@ class ContrastiveProjectionDataset(Dataset):
                 anchor_ctf[i] = param_list
                 pos_ctf[i] = param_list
                 neg_ctf[i] = param_list
+
+        for ctf in (anchor_ctf, pos_ctf, neg_ctf):
+            ctf[1] = ctf[0] / 3
+            ctf[4] = ctf[3] + 500
+
         # Stack images and CTF params
         images = torch.stack([anchor_img, pos_img, neg_img], dim=0)
         ctf_params = torch.stack([anchor_ctf, pos_ctf, neg_ctf], dim=0)
@@ -161,7 +161,7 @@ class ContrastiveProjectionDataset(Dataset):
         return images, ctf_params, pos_dist
 
     @staticmethod
-    def collate_fn(batch, lat, mask, freqs, pclean=0.3):
+    def collate_fn(batch, lat, mask, freqs, pclean=0.4):
         """
         Custom collate function to corrupt batches of triplet images with CTF and noise
         Args:
