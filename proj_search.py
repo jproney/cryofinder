@@ -71,7 +71,7 @@ def rotate_images(images, rot, lat=None, mask=None, input_hartley=True, output_h
 
     if fast_rotate:
         # Rotate in hartley space
-        rot_matrices = torch.stack([rot_2d(a, 2) for a in rot], dim=0).to(ht.device)
+        rot_matrices = torch.stack([rot_2d(a, 2, ht.device) for a in rot], dim=0)
         lattice_coords = lat.coords[mask][:, :2].to(ht.device) 
         rot_coords = lattice_coords @ rot_matrices
 
