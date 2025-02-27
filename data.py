@@ -152,7 +152,7 @@ class ContrastiveProjectionDataset(Dataset):
 
         for ctf in (anchor_ctf, pos_ctf, neg_ctf):
             ctf[1] = ctf[0] / 3
-            ctf[4] = ctf[3] + 500
+            ctf[3] = ctf[2] + 500
 
         # Stack images and CTF params
         images = torch.stack([anchor_img, pos_img, neg_img], dim=0)
