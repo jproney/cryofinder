@@ -249,6 +249,7 @@ def optimize_theta_trans_chunked(ref_images, query_images, trans, rot, chunk_siz
         if cf is not None:
             data = pickle.load(open(cf, 'rb'))
             ref_images = data['images']
+            M = ref_images.shape[0]
 
         for chunk_start in range(0, M, chunk_size):
             chunk_end = min(chunk_start + chunk_size, M)
