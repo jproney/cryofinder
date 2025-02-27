@@ -119,10 +119,11 @@ class ContrastiveProjectionDataset(Dataset):
         # Randomly select positive pair
         pos_idx = torch.randint(pos_mask.sum(), (1,)).item()
         pos_img = self.images[pos_mask][pos_idx]
-        pos_dist = self.angular_dists[idx, pos_mask][pos_idx]
         
         # Randomly select negative pair from different object
-        neg_img = self.images[neg_mask][torch.randint(neg_mask.sum(), (1,)).item()]
+        neg_idx = torch.randint(neg_mask.sum(), (1,)).item()
+        neg_img = self.images[neg_mask][neg_idx]
+        neg_obj = self.object_ids[neg_mask][neg_idx]
 
         # Sample CTF parameters for anchor, positive and negative images
         anchor_ctf = torch.zeros(9)
@@ -158,7 +159,7 @@ class ContrastiveProjectionDataset(Dataset):
         images = torch.stack([anchor_img, pos_img, neg_img], dim=0)
         ctf_params = torch.stack([anchor_ctf, pos_ctf, neg_ctf], dim=0)
 
-        return images, ctf_params, pos_dist
+        return images, ctf_params, torch.tensor([anchor_obj, anchor_obj, neg_obj])
 
     @staticmethod
     def collate_fn(batch, lat, mask, freqs, pclean=0.0):
@@ -172,7 +173,7 @@ class ContrastiveProjectionDataset(Dataset):
         # Stack all images and CTF params from batch
         images = torch.stack([x[0] for x in batch])  # Shape: (batch, 3, D, D)
         ctf_params = torch.stack([x[1] for x in batch])  # Shape: (batch, 3, 9) 
-        pos_dists = torch.stack([x[2] for x in batch])  # Shape: (batch,)
+        obj_ids = torch.stack([x[2] for x in batch])  # Shape: (batch,)
 
         B, N, D, _ = images.shape
         
@@ -236,4 +237,4 @@ class ContrastiveProjectionDataset(Dataset):
         corrupted = (corrupted - corrupted.mean(dim=(-1,-2), keepdim=True)) / corrupted.std(dim=(-1,-2), keepdim=True)
     
 
-        return corrupted, ctf_params, pos_dists
+        return corrupted, ctf_params, obj_ids

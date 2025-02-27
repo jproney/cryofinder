@@ -2,7 +2,7 @@ import torch
 from cryodrgn.lattice import Lattice
 from cryodrgn.pose_search import rot_2d, interpolate
 from cryodrgn import fft
-
+import pickle
 
 def translate_images(images, trans, lat=None, mask=None, input_hartley=True, output_hartley=True):
     """
@@ -210,20 +210,26 @@ def optimize_theta_trans_chunked(ref_images, query_images, trans, rot, chunk_siz
     Memory-efficient version that processes reference images in chunks.
     
     Args:
-        ref_images: shape M x D x D, real space images
+        ref_images: shape M x D x D, real space images or list of paths pointing to image files
         query_images: shape N x D x D, real space images  
         trans: shape N x T x 2 or T x 2, cartesian coordinates
         rot: shape R, rotation angles in radians
-        chunk_size: int, number of reference images to process at once
+        chunk_size: int, number of reference images to process at once, or number of chunk files to process at once
         fast_rotate: bool, whether to use fast rotation
         
     Returns:
         best_corr: shape N, best correlation for each query image
         best_indices: shape N x 3, indices of best (rotation, reference, translation) for each query
     """
-    M = ref_images.shape[0]
+
     N = query_images.shape[0]
     device = query_images.device
+    
+    # Handle both tensor and list of paths
+    if isinstance(ref_images, list):
+        M = len(ref_images)
+    else:
+        M = ref_images.shape[0]
     
     # Initialize arrays to store best results
     best_corr = torch.full((N,), float('-inf'), device=device)
@@ -239,7 +245,18 @@ def optimize_theta_trans_chunked(ref_images, query_images, trans, rot, chunk_siz
     # Process reference images in chunks
     for chunk_start in range(0, M, chunk_size):
         chunk_end = min(chunk_start + chunk_size, M)
-        chunk_refs = ref_images[chunk_start:chunk_end]
+        
+        if isinstance(ref_images, list):
+            # Load chunk of images from pickle files
+            chunk_refs = []
+            for path in ref_images[chunk_start:chunk_end]:
+                with open(path, 'rb') as f:
+                    data = pickle.load(f)
+                    img = data['images']
+                chunk_refs.append(img)
+            chunk_refs = torch.cat(chunk_refs).to(device)
+        else:
+            chunk_refs = ref_images[chunk_start:chunk_end]
         
         # Get correlations for this chunk
         chunk_best_vals, chunk_best_indices = optimize_theta_trans(chunk_refs, query_rot_images, trans, rot, fast_rotate, fast_translate, refine_fast_translate=refine_fast_translate, max_trans=max_trans, mask=mask, lat=lat, pre_rotated=True)        
