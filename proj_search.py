@@ -227,9 +227,10 @@ def optimize_theta_trans_chunked(ref_images, query_images, trans, rot, chunk_siz
     
     # Handle both tensor and list of paths
     if isinstance(ref_images, list):
-        M = len(ref_images)
+        chunk_files = ref_images
     else:
         M = ref_images.shape[0]
+        chunk_files = None
     
     # Initialize arrays to store best results
     best_corr = torch.full((N,), float('-inf'), device=device)
@@ -243,30 +244,24 @@ def optimize_theta_trans_chunked(ref_images, query_images, trans, rot, chunk_siz
     query_rot_images = rotate_images(query_ht, rot, lat=lat, mask=mask, fast_rotate=fast_rotate)
     
     # Process reference images in chunks
-    for chunk_start in range(0, M, chunk_size):
-        chunk_end = min(chunk_start + chunk_size, M)
-        
-        if isinstance(ref_images, list):
-            # Load chunk of images from pickle files
-            chunk_refs = []
-            for path in ref_images[chunk_start:chunk_end]:
-                with open(path, 'rb') as f:
-                    data = pickle.load(f)
-                    img = data['images']
-                chunk_refs.append(img)
-            chunk_refs = torch.cat(chunk_refs).to(device)
-        else:
+    for cf in chunk_files:
+
+        if cf is not None:
+            data = pickle.load(open(cf, 'rb'))
+            ref_images = data['images']
+
+        for chunk_start in range(0, M, chunk_size):
+            chunk_end = min(chunk_start + chunk_size, M)
             chunk_refs = ref_images[chunk_start:chunk_end]
-        
-        # Get correlations for this chunk
-        chunk_best_vals, chunk_best_indices = optimize_theta_trans(chunk_refs, query_rot_images, trans, rot, fast_rotate, fast_translate, refine_fast_translate=refine_fast_translate, max_trans=max_trans, mask=mask, lat=lat, pre_rotated=True)        
+            # Get correlations for this chunk
+            chunk_best_vals, chunk_best_indices = optimize_theta_trans(chunk_refs, query_rot_images, trans, rot, fast_rotate, fast_translate, refine_fast_translate=refine_fast_translate, max_trans=max_trans, mask=mask, lat=lat, pre_rotated=True)        
 
-        # Adjust reference indices to account for chunking
-        chunk_best_indices[:,0] += chunk_start
-        
-        # Update best results where this chunk had better correlations
-        better_mask = chunk_best_vals > best_corr
-        best_corr[better_mask] = chunk_best_vals[better_mask]
-        best_indices[better_mask] = chunk_best_indices[better_mask]
+            # Adjust reference indices to account for chunking
+            chunk_best_indices[:,0] += chunk_start
+            
+            # Update best results where this chunk had better correlations
+            better_mask = chunk_best_vals > best_corr
+            best_corr[better_mask] = chunk_best_vals[better_mask]
+            best_indices[better_mask] = chunk_best_indices[better_mask]
 
-    return best_corr, best_indices
+        return best_corr, best_indices
