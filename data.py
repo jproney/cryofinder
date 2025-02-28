@@ -2,6 +2,7 @@ import torch
 import torch.nn.functional as F
 from torch.utils.data import Dataset
 from cryodrgn import ctf
+from cryodrgn.source import ImageSource
 from cryodrgn.lattice import Lattice
 from proj_search import rotate_images, translate_images
 
@@ -26,13 +27,13 @@ def corrupt_with_ctf(batch_ptcls, batch_ctf_params, snr1, snr2, freqs, b_factor=
 
 
 class ContrastiveProjectionDataset(Dataset):
-    def __init__(self, images, phis, thetas, object_ids, pos_angle_threshold=30, pclean=0.3, snr1=[1.5], 
-                 dfu=[10000], Apix=5.0, ang=0.0, kv=300, cs=2.7, wgh=0.1, ps=0.0):
+    def __init__(self, image_files, phis, thetas, object_ids, pos_angle_threshold=30, pclean=0.3, snr1=[1.5], 
+                 dfu=[10000], Apix=5.0, ang=0.0, kv=300, cs=2.7, wgh=0.1, ps=0.0, proj_per_obj=192, img_size=128):
         """
         Dataset for contrastive learning of image projections.
         
         Args:
-            images: Tensor of shape N x H x W containing projection images
+            image_files: List of file paths for each projection image
             phis: Tensor of shape N containing phi angles in degrees
             thetas: Tensor of shape N containing theta angles in degrees  
             object_ids: Tensor of shape N containing integer IDs for each 3D object
@@ -46,7 +47,7 @@ class ContrastiveProjectionDataset(Dataset):
             wgh: Amplitude contrast ratio
             ps: Phase shift in radians
         """
-        self.images = images
+        self.image_files = image_files
         self.phis = phis 
         self.thetas = thetas
         self.object_ids = object_ids
@@ -60,46 +61,20 @@ class ContrastiveProjectionDataset(Dataset):
         self.wgh = wgh
         self.ps = ps
         self.pclean = pclean
-
-        # Pre-compute angular distances between all pairs
-        self.angular_dists = self._compute_angular_distances()
-        
-        # Get indices grouped by object ID for efficient negative sampling
-        self.obj_to_idx = {}
-        for i, obj_id in enumerate(object_ids):
-            if obj_id.item() not in self.obj_to_idx:
-                self.obj_to_idx[obj_id.item()] = []
-            self.obj_to_idx[obj_id.item()].append(i)
+        self.proj_per_obj = proj_per_obj
+        self.img_size = img_size
 
         # Create a Lattice object for transformations
-        self.lat = Lattice(images.shape[-1] + 1)
-        self.mask = self.lat.get_circular_mask((images.shape[-1]) // 2)
+        self.lat = Lattice(img_size + 1)
+        self.mask = self.lat.get_circular_mask(img_size // 2)
 
         # prepare frequency lattice
-        freqs = torch.arange(-images.shape[-1]//2, images.shape[-1]//2) / (self.Apix * images.shape[-1])
+        freqs = torch.arange(-img_size//2, img_size//2) / (self.Apix * img_size)
         x0, x1 = torch.meshgrid(freqs, freqs)
         self.freqs = torch.stack([x0.ravel(), x1.ravel()], dim=1)
 
-
-    def _compute_angular_distances(self):
-        """Compute pairwise angular distances between all poses"""
-        N = len(self.phis)
-        dists = torch.zeros((N, N))
-        
-        # Compute 3D unit vectors for each orientation
-        x = torch.cos(self.phis) * torch.sin(self.thetas)
-        y = torch.sin(self.phis) * torch.sin(self.thetas)
-        z = torch.cos(self.thetas)
-        vectors = torch.stack([x, y, z], dim=1)
-        
-        # Compute angular distances using dot product
-        dists = torch.rad2deg(torch.arccos(torch.clamp(
-            torch.matmul(vectors, vectors.T), -1.0, 1.0)))
-            
-        return dists
-
     def __len__(self):
-        return len(self.images)
+        return len(self.image_files) * self.proj_per_obj
 
     def __getitem__(self, idx):
         """
@@ -109,21 +84,43 @@ class ContrastiveProjectionDataset(Dataset):
             neg_img: A negative pair image (different object)
             pos_dist: Angular distance between anchor and positive pair
         """
-        anchor_img = self.images[idx]
-        anchor_obj = self.object_ids[idx]
-        
-        # Find valid positive pairs (same object, within angle threshold)
-        pos_mask = (self.object_ids == anchor_obj) & (self.angular_dists[idx] <= self.pos_threshold) & (torch.arange(len(self.images)) != idx)
-        neg_mask = torch.logical_not(pos_mask)
+        # Load images from files
+        obj_idx = idx // self.proj_per_obj
+        proj_id = idx % self.proj_per_obj
 
-        # Randomly select positive pair
-        pos_idx = torch.randint(pos_mask.sum(), (1,)).item()
-        pos_img = self.images[pos_mask][pos_idx]
+        image_stack = ImageSource.from_file(self.image_files[obj_idx] + '.mrcs').images() 
+        anchor_img = image_stack[proj_id]
+        anchor_obj = self.object_ids[obj_idx]
         
-        # Randomly select negative pair from different object
-        neg_idx = torch.randint(neg_mask.sum(), (1,)).item()
-        neg_img = self.images[neg_mask][neg_idx]
-        neg_obj = self.object_ids[neg_mask][neg_idx]
+        phis, thetas = torch.load(self.image_files[obj_idx] + '_pose.pkl') 
+
+
+        # Get positive pair from same image stack with similar viewing angle
+        # Calculate angular distances between anchor and all other projections using spherical coordinates
+        # cos(angle) = sin(theta1)sin(theta2)cos(phi1-phi2) + cos(theta1)cos(theta2)
+        theta1, phi1 = thetas[proj_id], phis[proj_id]
+        angle_dists = torch.arccos(
+            torch.sin(theta1) * torch.sin(thetas) * torch.cos(phi1 - phis) + 
+            torch.cos(theta1) * torch.cos(thetas)
+        )
+        
+        # Create mask of valid positive pairs (within threshold and not same projection)
+        valid_mask = (angle_dists <= self.pos_threshold * torch.pi/180)
+        
+        # Sample from valid indices
+        valid_indices = torch.where(valid_mask)[0]
+        pos_idx = valid_indices[torch.randint(len(valid_indices), (1,))].item()
+        pos_img = image_stack[pos_idx]
+        
+        # Get negative pair from different object
+        neg_obj_idx = torch.randint(len(self.image_files), (1,)).item()
+        while neg_obj_idx == obj_idx:  # Ensure different object
+            neg_obj_idx = torch.randint(len(self.image_files), (1,)).item()
+            
+        neg_stack = torch.load(self.image_files[neg_obj_idx])
+        neg_proj_idx = torch.randint(neg_stack.shape[0], (1,)).item()
+        neg_img = neg_stack[neg_proj_idx]
+        neg_obj = self.object_ids[neg_obj_idx]
 
         # Sample CTF parameters for anchor, positive and negative images
         anchor_ctf = torch.zeros(9)
@@ -131,11 +128,11 @@ class ContrastiveProjectionDataset(Dataset):
         neg_ctf = torch.zeros(9)
 
         # Set D and pixel size (first two params)
-        anchor_ctf[0] = self.images.shape[-1]
+        anchor_ctf[0] = self.img_size
         anchor_ctf[1] = self.Apix
-        pos_ctf[0] = self.images.shape[-1]
+        pos_ctf[0] = self.img_size
         pos_ctf[1] = self.Apix
-        neg_ctf[0] = self.images.shape[-1]
+        neg_ctf[0] = self.img_size
         neg_ctf[1] = self.Apix
 
 
