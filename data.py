@@ -27,16 +27,16 @@ def corrupt_with_ctf(batch_ptcls, batch_ctf_params, snr1, snr2, freqs, b_factor=
 
 
 class ContrastiveProjectionDataset(Dataset):
-    def __init__(self, image_files, phis, thetas, object_ids, pos_angle_threshold=30, pclean=0.3, snr1=[1.5], 
+    def __init__(self, images, phis, thetas, object_ids, pos_angle_threshold=30, pclean=0.3, snr1=[1.5], 
                  dfu=[10000], Apix=5.0, ang=0.0, kv=300, cs=2.7, wgh=0.1, ps=0.0, proj_per_obj=192, img_size=128):
         """
         Dataset for contrastive learning of image projections.
         
         Args:
-            image_files: List of file paths for each projection image
-            phis: Tensor of shape N containing phi angles in degrees
-            thetas: Tensor of shape N containing theta angles in degrees  
-            object_ids: Tensor of shape N containing integer IDs for each 3D object
+            images: Tensor of shape (num_objects, num_projections, img_size, img_size)
+            phis: Tensor of shape (num_objects, num_projections) containing phi angles in degrees
+            thetas: Tensor of shape (num_objects, num_projections) containing theta angles in degrees  
+            object_ids: Tensor of shape (num_objects,) containing integer IDs for each 3D object
             pos_angle_threshold: Maximum angular difference in degrees for positive pairs
             snr1: List of signal-to-noise ratios for structural noise. snr2 is snr1 / 3
             dfu: List of defocus values in Angstroms for u-axis. dfv is dfu + 500
@@ -47,7 +47,7 @@ class ContrastiveProjectionDataset(Dataset):
             wgh: Amplitude contrast ratio
             ps: Phase shift in radians
         """
-        self.image_files = image_files
+        self.images = images
         self.phis = phis 
         self.thetas = thetas
         self.object_ids = object_ids
@@ -74,7 +74,7 @@ class ContrastiveProjectionDataset(Dataset):
         self.freqs = torch.stack([x0.ravel(), x1.ravel()], dim=1)
 
     def __len__(self):
-        return len(self.image_files) * self.proj_per_obj
+        return len(self.images) * self.proj_per_obj
 
     def __getitem__(self, idx):
         """
@@ -82,25 +82,20 @@ class ContrastiveProjectionDataset(Dataset):
             anchor_img: The anchor image
             pos_img: A positive pair image (same object, similar angle)
             neg_img: A negative pair image (different object)
-            pos_dist: Angular distance between anchor and positive pair
         """
-        # Load images from files
+        # Determine object and projection indices
         obj_idx = idx // self.proj_per_obj
         proj_id = idx % self.proj_per_obj
 
-        image_stack = ImageSource.from_file(self.image_files[obj_idx] + '.mrcs').images() 
-        anchor_img = image_stack[proj_id]
+        # Get anchor image and its angles
+        anchor_img = self.images[obj_idx, proj_id]
         anchor_obj = self.object_ids[obj_idx]
-        
-        phis, thetas = map(torch.tensor, pickle.load(open(self.image_files[obj_idx] + '_pose.pkl','rb'))) 
+        theta1, phi1 = self.thetas[obj_idx, proj_id], self.phis[obj_idx, proj_id]
 
-        # Get positive pair from same image stack with similar viewing angle
-        # Calculate angular distances between anchor and all other projections using spherical coordinates
-        # cos(angle) = sin(theta1)sin(theta2)cos(phi1-phi2) + cos(theta1)cos(theta2)
-        theta1, phi1 = thetas[proj_id], phis[proj_id]
+        # Calculate angular distances for positive pair selection
         angle_dists = torch.arccos(
-            torch.sin(theta1) * torch.sin(thetas) * torch.cos(phi1 - phis) + 
-            torch.cos(theta1) * torch.cos(thetas)
+            torch.sin(theta1) * torch.sin(self.thetas[obj_idx]) * torch.cos(phi1 - self.phis[obj_idx]) + 
+            torch.cos(theta1) * torch.cos(self.thetas[obj_idx])
         )
         
         # Create mask of valid positive pairs (within threshold and not same projection)
@@ -109,16 +104,15 @@ class ContrastiveProjectionDataset(Dataset):
         # Sample from valid indices
         valid_indices = torch.where(valid_mask)[0]
         pos_idx = valid_indices[torch.randint(len(valid_indices), (1,))].item()
-        pos_img = image_stack[pos_idx]
+        pos_img = self.images[obj_idx, pos_idx]
         
         # Get negative pair from different object
-        neg_obj_idx = torch.randint(len(self.image_files), (1,)).item()
+        neg_obj_idx = torch.randint(len(self.object_ids), (1,)).item()
         while neg_obj_idx == obj_idx:  # Ensure different object
-            neg_obj_idx = torch.randint(len(self.image_files), (1,)).item()
+            neg_obj_idx = torch.randint(len(self.object_ids), (1,)).item()
             
-        neg_stack = ImageSource.from_file(self.image_files[neg_obj_idx] + '.mrcs').images()
-        neg_proj_idx = torch.randint(neg_stack.shape[0], (1,)).item()
-        neg_img = neg_stack[neg_proj_idx]
+        neg_proj_idx = torch.randint(self.images.shape[1], (1,)).item()
+        neg_img = self.images[neg_obj_idx, neg_proj_idx]
         neg_obj = self.object_ids[neg_obj_idx]
 
         # Sample CTF parameters for anchor, positive and negative images
