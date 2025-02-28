@@ -92,8 +92,7 @@ class ContrastiveProjectionDataset(Dataset):
         anchor_img = image_stack[proj_id]
         anchor_obj = self.object_ids[obj_idx]
         
-        phis, thetas = pickle.load(open(self.image_files[obj_idx] + '_pose.pkl','rb')) 
-
+        phis, thetas = map(torch.tensor, pickle.load(open(self.image_files[obj_idx] + '_pose.pkl','rb'))) 
 
         # Get positive pair from same image stack with similar viewing angle
         # Calculate angular distances between anchor and all other projections using spherical coordinates
