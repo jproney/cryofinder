@@ -53,7 +53,7 @@ class ContrastiveLearningModule(pl.LightningModule):
 
         return embeddings, ids
 
-    def validation_epoch_end(self, outputs):
+    def on_validation_epoch_end(self, outputs):
         all_embeddings = torch.cat([x[0] for x in outputs])
         all_labels = torch.cat([x[1] for x in outputs])
 
