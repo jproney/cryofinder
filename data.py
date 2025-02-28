@@ -5,7 +5,7 @@ from cryodrgn import ctf
 from cryodrgn.source import ImageSource
 from cryodrgn.lattice import Lattice
 from proj_search import rotate_images, translate_images
-
+import pickle
 
 # corrupt a batch of particle images with simulated noise
 def corrupt_with_ctf(batch_ptcls, batch_ctf_params, snr1, snr2, freqs, b_factor=None):
@@ -92,7 +92,7 @@ class ContrastiveProjectionDataset(Dataset):
         anchor_img = image_stack[proj_id]
         anchor_obj = self.object_ids[obj_idx]
         
-        phis, thetas = torch.load(self.image_files[obj_idx] + '_pose.pkl') 
+        phis, thetas = pickle.load(open(self.image_files[obj_idx] + '_pose.pkl','rb')) 
 
 
         # Get positive pair from same image stack with similar viewing angle
@@ -117,7 +117,7 @@ class ContrastiveProjectionDataset(Dataset):
         while neg_obj_idx == obj_idx:  # Ensure different object
             neg_obj_idx = torch.randint(len(self.image_files), (1,)).item()
             
-        neg_stack = torch.load(self.image_files[neg_obj_idx])
+        neg_stack = ImageSource.from_file(self.image_files[neg_obj_idx] + '.mrcs').images()
         neg_proj_idx = torch.randint(neg_stack.shape[0], (1,)).item()
         neg_img = neg_stack[neg_proj_idx]
         neg_obj = self.object_ids[neg_obj_idx]
