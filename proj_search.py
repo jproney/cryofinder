@@ -255,7 +255,7 @@ def optimize_theta_trans_chunked(ref_images, query_images, trans, rot, chunk_siz
 
         for chunk_start in range(0, M, chunk_size):
             chunk_end = min(chunk_start + chunk_size, M)
-            chunk_refs = ref_images[chunk_start:chunk_end]
+            chunk_refs = ref_images[chunk_start:chunk_end].to(device)
             # Get correlations for this chunk
             chunk_best_vals, chunk_best_indices = optimize_theta_trans(chunk_refs, query_rot_images, trans, rot, fast_rotate, fast_translate, refine_fast_translate=refine_fast_translate, max_trans=max_trans, mask=mask, lat=lat, pre_rotated=True)        
 
