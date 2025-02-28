@@ -230,7 +230,7 @@ def optimize_theta_trans_chunked(ref_images, query_images, trans, rot, chunk_siz
         chunk_files = ref_images
     else:
         M = ref_images.shape[0]
-        chunk_files = None
+        chunk_files = [None]
     
     # Initialize arrays to store best results
     best_corr = torch.full((N,), float('-inf'), device=device)
