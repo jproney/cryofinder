@@ -8,7 +8,7 @@ from torchvision.models import resnet50
 from pytorch_lightning.loggers import TensorBoardLogger
 from pytorch_lightning.callbacks import ModelCheckpoint
 import os
-import datetime
+from datetime import datetime
 import glob
 from data import ContrastiveProjectionDataset 
 
@@ -85,10 +85,11 @@ class ContrastiveLearningModule(pl.LightningModule):
 
 def main():
     parser = argparse.ArgumentParser(description='Contrastive Learning with PyTorch Lightning')
+    parser.add_argument('--exp_name', type=str, help='Name of the experiment')
     parser.add_argument('--batch_size', type=int, default=32, help='Batch size for training')
     parser.add_argument('--embedding_dim', type=int, default=128, help='Dimension of the embedding space')
     parser.add_argument('--epochs', type=int, default=10, help='Number of training epochs')
-    parser.add_argument('--log_dir', type=str, default='logs', help='Directory to save logs and checkpoints')
+    parser.add_argument('--log_dir', type=str, default='/home/gridsan/jroney/cryofinder-training', help='Directory to save logs and checkpoints')
     args = parser.parse_args()
 
 
