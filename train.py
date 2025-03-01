@@ -18,6 +18,10 @@ class ContrastiveModel(nn.Module):
         
         # Load ResNet50 model
         self.resnet = resnet50(pretrained=False)
+
+        # modify first conv to have input dim of 1
+        self.resnet.conv1 = nn.Conv2d(1, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
+
         # Modify the final layer to output the desired embedding dimension
         self.resnet.fc = nn.Linear(self.resnet.fc.in_features, embedding_dim)
 
@@ -35,9 +39,12 @@ class ContrastiveLearningModule(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         images, _, _ = batch
-        anchor_embeddings = self(images[:,0])
-        positive_embeddings = self(images[:,1])
-        negative_embeddings = self(images[:,2])
+        # Reshape to process all images at once (B,3,H,W) -> (B*3,1,H,W)
+        batch_size = images.shape[0]
+        all_embeddings = self(images.view(-1, 1, *images.shape[2:]))
+        # Reshape back to separate anchor/positive/negative (B*3,E) -> (B,3,E)
+        all_embeddings = all_embeddings.view(batch_size, 3, -1)
+        anchor_embeddings, positive_embeddings, negative_embeddings = all_embeddings.unbind(dim=1)
 
         # Contrastive loss
         pos_dist = F.pairwise_distance(anchor_embeddings, positive_embeddings)
