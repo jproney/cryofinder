@@ -77,14 +77,14 @@ class ContrastiveLearningModule(pl.LightningModule):
         self.log('val_match_fraction', match_frac)
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.model.parameters(), lr=self.config.training.learning_rate)
+        optimizer = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate)
         scheduler = torch.optim.lr_scheduler.OneCycleLR(
             optimizer,
-            max_lr=self.config.training.learning_rate,
+            max_lr=self.learning_rate,
             total_steps=self.trainer.estimated_stepping_batches,
-            pct_start=self.config.training.lr_scheduler.pct_start,
-            div_factor=self.config.training.lr_scheduler.div_factor,
-            final_div_factor=self.config.training.lr_scheduler.final_div_factor,
+            pct_start=0.3,
+            div_factor=25.0,
+            final_div_factor=10000,
         )
         return {
             "optimizer": optimizer,
