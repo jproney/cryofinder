@@ -33,6 +33,7 @@ class ContrastiveLearningModule(pl.LightningModule):
         super(ContrastiveLearningModule, self).__init__()
         self.model = model
         self.learning_rate = learning_rate
+        self.val_embs = []
 
     def forward(self, x):
         return self.model(x)
@@ -58,11 +59,12 @@ class ContrastiveLearningModule(pl.LightningModule):
         images, _, ids = batch
         embeddings = self(images[:,0].unsqueeze(1)) # just do the anchor
 
-        return embeddings, ids
+        self.val_embs.append((embeddings, ids))
+        return None
 
-    def on_validation_epoch_end(self, outputs):
-        all_embeddings = torch.cat([x[0] for x in outputs])
-        all_labels = torch.cat([x[1] for x in outputs])
+    def on_validation_epoch_end(self):
+        all_embeddings = torch.cat([x[0] for x in self.val_embs])
+        all_labels = torch.cat([x[1] for x in self.val_embs])
 
         # Compute confusion statistics
         # Compute all pairwise cosine similarities
@@ -82,6 +84,7 @@ class ContrastiveLearningModule(pl.LightningModule):
         match_frac = (matches[:,1:].float().mean(dim=1)).mean()
         
         self.log('val_match_fraction', match_frac)
+        self.val_embs = []
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.model.parameters(), lr=self.learning_rate)
@@ -153,7 +156,7 @@ train_dataset = ContrastiveProjectionDataset(train_dat['images'], train_dat['phi
 train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, collate_fn=lambda x: ContrastiveProjectionDataset.collate_fn(x, train_dataset.lat, train_dataset.mask, train_dataset.freqs, corrupt=False))
 
 val_dataset = ContrastiveProjectionDataset(val_dat['images'], val_dat['phis'], val_dat['thetas'], val_dat['ids'])
-val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False)
+val_loader = DataLoader(val_dataset, batch_size=args.batch_size*30, shuffle=False)
 
 # Initialize model and training module
 model = ContrastiveModel(embedding_dim=args.embedding_dim)
