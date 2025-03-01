@@ -57,10 +57,23 @@ class ContrastiveLearningModule(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         images, _, ids = batch
-        embeddings = self(images[:,0].unsqueeze(1)) # just do the anchor
+        # Reshape to process all images at once (B,3,H,W) -> (B*3,1,H,W)
+        batch_size = images.shape[0]
+        all_embeddings = self(images.view(-1, 1, *images.shape[2:]))
+        # Reshape back to separate anchor/positive/negative (B*3,E) -> (B,3,E)
+        all_embeddings = all_embeddings.view(batch_size, 3, -1)
+        anchor_embeddings, positive_embeddings, negative_embeddings = all_embeddings.unbind(dim=1)
 
-        self.val_embs.append((embeddings, ids))
-        return None
+        # Contrastive loss
+        pos_dist = F.pairwise_distance(anchor_embeddings, positive_embeddings)
+        neg_dist = F.pairwise_distance(anchor_embeddings, negative_embeddings)
+        loss = torch.mean(F.relu(pos_dist - neg_dist + 1.0))  # Margin of 1.0
+
+        self.log('val_loss', loss)
+
+        self.val_embs.append((anchor_embeddings, ids))
+
+        return loss
 
     def on_validation_epoch_end(self):
         all_embeddings = torch.cat([x[0] for x in self.val_embs])
