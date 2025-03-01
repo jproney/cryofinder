@@ -56,7 +56,7 @@ class ContrastiveLearningModule(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         images, _, ids = batch
-        embeddings = self(images[:,0]) # just do the anchor
+        embeddings = self(images[:,0].unsqueeze(1)) # just do the anchor
 
         return embeddings, ids
 
