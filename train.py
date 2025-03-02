@@ -75,7 +75,7 @@ class ContrastiveLearningModule(pl.LightningModule):
 
         self.log('val_loss', loss)
 
-        self.val_embs.append((anchor_embeddings, ids))
+        self.val_embs.append((anchor_embeddings, ids[:,0]))
 
         return loss
 
