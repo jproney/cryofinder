@@ -49,9 +49,11 @@ class ContrastiveLearningModule(pl.LightningModule):
         anchor_embeddings, positive_embeddings, negative_embeddings = all_embeddings.unbind(dim=1)
 
         # Contrastive loss
-        pos_dist = F.pairwise_distance(anchor_embeddings, positive_embeddings)
+        # Contrastive loss
+        pos_mse = (anchor_embeddings - positive_embeddings).pow(2).sum(dim=-1)
         neg_dist = F.pairwise_distance(anchor_embeddings, negative_embeddings)
-        loss = torch.mean(F.relu(pos_dist - neg_dist + 1.0))  # Margin of 1.0
+
+        loss = (pos_mse + F.relu(1 - neg_dist)**2).mean()
 
         self.log('train_loss', loss)
         return loss
@@ -69,7 +71,7 @@ class ContrastiveLearningModule(pl.LightningModule):
         pos_mse = (anchor_embeddings - positive_embeddings).pow(2).sum(dim=-1)
         neg_dist = F.pairwise_distance(anchor_embeddings, negative_embeddings)
 
-        loss = pos_mse + F.relu(1 - neg_dist)**2
+        loss = (pos_mse + F.relu(1 - neg_dist)**2).mean()
 
         self.log('val_loss', loss)
 
@@ -189,7 +191,7 @@ trainer = pl.Trainer(
     callbacks=[checkpoint_callback],
     devices=1,
     accelerator='gpu',
-    gradient_clip_val=10.0  # Add gradient clipping
+    gradient_clip_val=10.0,  # Add gradient clipping
     limit_train_batches=100
 )
 
