@@ -36,7 +36,8 @@ class ContrastiveLearningModule(pl.LightningModule):
         self.val_embs = []
 
     def forward(self, x):
-        return self.model(x)
+        embeddings = self.model(x)
+        return F.normalize(embeddings, p=2, dim=1)
 
     def training_step(self, batch, batch_idx):
         images, _, _ = batch

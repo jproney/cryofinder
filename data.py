@@ -152,7 +152,7 @@ class ContrastiveProjectionDataset(Dataset):
         return images, ctf_params, torch.tensor([anchor_obj, anchor_obj, neg_obj])
 
     @staticmethod
-    def collate_fn(batch, lat, mask, freqs, corrupt=False, zoom=False):
+    def collate_fn(batch, lat, mask, freqs, ctf_corrupt=False, noise=False):
         """
         Custom collate function to corrupt batches of triplet images with CTF and noise
         Args:
@@ -172,8 +172,28 @@ class ContrastiveProjectionDataset(Dataset):
         ctf_params = ctf_params.view(-1, 9)
 
         # Corrupt part of batch
-        if corrupt:
+        if ctf_corrupt:
             corrupted = corrupt_with_ctf(images, ctf_params[:,2:], ctf_params[:,0], ctf_params[:,1], freqs)
+        elif noise:
+            # Reshape to apply transformations independently per image
+            corrupted = images.clone()  # Shape: (B, 3, 128, 128)
+            corrupted = corrupted.view(-1, 128, 128)  # Shape: (B*3, 128, 128)
+            
+            # Add Gaussian noise with probability p_noise
+            p_noise = 0.5
+            noise_mask = (torch.rand(corrupted.shape[0]) < p_noise).to(corrupted.device)
+            noise = torch.randn_like(corrupted) * 0.1  # 0.1 std dev for noise
+            corrupted[noise_mask] = corrupted[noise_mask] + noise[noise_mask]
+
+            # Apply random contrast adjustment with probability p_contrast 
+            p_contrast = 0.5
+            contrast_mask = (torch.rand(corrupted.shape[0]) < p_contrast).to(corrupted.device)
+            scales = (torch.rand(corrupted.shape[0]).to(corrupted.device) * 0.4 + 0.8).view(-1, 1, 1)  # Random scale in [0.8, 1.2]
+            shifts = ((torch.rand(corrupted.shape[0]).to(corrupted.device) - 0.5) * 0.2).view(-1, 1, 1)  # Random shift in [-0.1, 0.1]
+            corrupted[contrast_mask] = corrupted[contrast_mask] * scales[contrast_mask] + shifts[contrast_mask]
+            
+            # Reshape back to original dimensions
+            corrupted = corrupted.view_as(images)  # Shape: (B, 3, 128, 128)
         else:
             corrupted = images
 
@@ -193,9 +213,6 @@ class ContrastiveProjectionDataset(Dataset):
         # Reshape back to (batch, 3, D, D)
         corrupted = corrupted.view(B, N, D, D)
 
-        ctf_params = ctf_params.view(B, N, 9)
-
-        corrupted = (corrupted - corrupted.mean(dim=(-1,-2), keepdim=True)) / corrupted.std(dim=(-1,-2), keepdim=True)
-    
+        ctf_params = ctf_params.view(B, N, 9)    
 
         return corrupted, ctf_params, obj_ids
