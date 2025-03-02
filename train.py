@@ -167,7 +167,7 @@ train_dat = torch.load("/home/gridsan/jroney/train_projections.pt")
 val_dat = torch.load("/home/gridsan/jroney/val_projections.pt")
 
 train_dataset = ContrastiveProjectionDataset(train_dat['images'], train_dat['phis'], train_dat['thetas'], train_dat['ids'])
-train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, collate_fn=lambda x: ContrastiveProjectionDataset.collate_fn(x, train_dataset.lat, train_dataset.mask, train_dataset.freqs, corrupt=False))
+train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, collate_fn=lambda x: ContrastiveProjectionDataset.collate_fn(x, train_dataset.lat, train_dataset.mask, train_dataset.freqs, ctf_corrupt=False))
 
 val_dataset = ContrastiveProjectionDataset(val_dat['images'], val_dat['phis'], val_dat['thetas'], val_dat['ids'])
 val_loader = DataLoader(val_dataset, batch_size=args.batch_size*30, shuffle=False)
