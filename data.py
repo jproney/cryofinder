@@ -109,20 +109,31 @@ class ContrastiveProjectionDataset(Dataset):
         
         # With probability p_hard, select hard negative from same object
         if torch.rand(1).item() < self.p_hard:
+            # Create mask of valid hard negatives (beyond 2x angular threshold)
+            valid_mask = (angle_dists > self.pos_threshold * torch.pi/180 * 2)
+            
             # Calculate cross correlations between anchor and all projections of same object
             anchor_flat = anchor_img.flatten()
             all_projs = self.images[obj_idx].reshape(self.proj_per_obj, -1)
             cross_corrs = F.cosine_similarity(anchor_flat, all_projs)
             
-            # Get indices of bottom 25% correlations
+            # Get indices of bottom 25% correlations that also satisfy angular threshold
             _, indices = torch.sort(cross_corrs)
-            hard_neg_candidates = indices[:self.proj_per_obj//4]
+            hard_neg_candidates = indices[valid_mask[indices]][:self.proj_per_obj//4]
             
-            # Sample from hard negatives
-            neg_proj_idx = hard_neg_candidates[torch.randint(len(hard_neg_candidates), (1,))].item()
-            neg_img = self.images[obj_idx, neg_proj_idx]
-            neg_obj = self.object_ids[obj_idx]
-            
+            # Only proceed with hard negative if we found valid candidates
+            if len(hard_neg_candidates) > 0:
+                neg_proj_idx = hard_neg_candidates[torch.randint(len(hard_neg_candidates), (1,))].item()
+                neg_img = self.images[obj_idx, neg_proj_idx]
+                neg_obj = self.object_ids[obj_idx]
+            else:
+                # Fall back to different object if no valid hard negatives found
+                neg_obj_idx = torch.randint(len(self.object_ids), (1,)).item()
+                while neg_obj_idx == obj_idx:  # Ensure different object
+                    neg_obj_idx = torch.randint(len(self.object_ids), (1,)).item()
+                neg_proj_idx = torch.randint(self.images.shape[1], (1,)).item()
+                neg_img = self.images[neg_obj_idx, neg_proj_idx]
+                neg_obj = self.object_ids[neg_obj_idx]
         # Otherwise select negative from different object
         else:
             neg_obj_idx = torch.randint(len(self.object_ids), (1,)).item()
