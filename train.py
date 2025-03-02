@@ -66,9 +66,10 @@ class ContrastiveLearningModule(pl.LightningModule):
         anchor_embeddings, positive_embeddings, negative_embeddings = all_embeddings.unbind(dim=1)
 
         # Contrastive loss
-        pos_dist = F.pairwise_distance(anchor_embeddings, positive_embeddings)
+        pos_mse = (anchor_embeddings - positive_embeddings).pow(2).sum(dim=-1)
         neg_dist = F.pairwise_distance(anchor_embeddings, negative_embeddings)
-        loss = torch.mean(F.relu(pos_dist - neg_dist + 1.0))  # Margin of 1.0
+
+        loss = pos_mse + F.relu(1 - neg_dist)**2
 
         self.log('val_loss', loss)
 
@@ -121,6 +122,7 @@ class ContrastiveLearningModule(pl.LightningModule):
 
 parser = argparse.ArgumentParser(description='Contrastive Learning with PyTorch Lightning')
 parser.add_argument('--exp_name', type=str, help='Name of the experiment')
+parser.add_argument('--resume_run', type=str, help='Full experiment name to resume (e.g., "my_experiment_20240315_123456")')
 parser.add_argument('--batch_size', type=int, default=32, help='Batch size for training')
 parser.add_argument('--embedding_dim', type=int, default=128, help='Dimension of the embedding space')
 parser.add_argument('--epochs', type=int, default=10, help='Number of training epochs')
@@ -128,11 +130,15 @@ parser.add_argument('--log_dir', type=str, default='/home/gridsan/jroney/cryofin
 args = parser.parse_args()
 
 
-# Create unique experiment name with timestamp
-timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-exp_name = f"{args.exp_name}_{timestamp}"
-log_dir = os.path.join(args.log_dir, exp_name)
-os.makedirs(log_dir, exist_ok=True)
+# Create or load experiment name
+if args.resume_run:
+    exp_name = args.resume_run
+    print(f"Resuming training from experiment: {exp_name}")
+else:
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    exp_name = f"{args.exp_name}_{timestamp}"
+    log_dir = os.path.join(args.log_dir, exp_name)
+    os.makedirs(log_dir, exist_ok=True)
 
 print(f"Starting new experiment: {exp_name}")
 
@@ -167,7 +173,7 @@ train_dat = torch.load("/home/gridsan/jroney/train_projections.pt")
 val_dat = torch.load("/home/gridsan/jroney/val_projections.pt")
 
 train_dataset = ContrastiveProjectionDataset(train_dat['images'], train_dat['phis'], train_dat['thetas'], train_dat['ids'])
-train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, collate_fn=lambda x: ContrastiveProjectionDataset.collate_fn(x, train_dataset.lat, train_dataset.mask, train_dataset.freqs, ctf_corrupt=False))
+train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, collate_fn=lambda x: ContrastiveProjectionDataset.collate_fn(x, train_dataset.lat, train_dataset.mask, train_dataset.freqs, ctf_corrupt=False, noise=True))
 
 val_dataset = ContrastiveProjectionDataset(val_dat['images'], val_dat['phis'], val_dat['thetas'], val_dat['ids'])
 val_loader = DataLoader(val_dataset, batch_size=args.batch_size*30, shuffle=False)

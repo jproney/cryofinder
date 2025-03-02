@@ -28,7 +28,7 @@ def corrupt_with_ctf(batch_ptcls, batch_ctf_params, snr1, snr2, freqs, b_factor=
 
 class ContrastiveProjectionDataset(Dataset):
     def __init__(self, images, phis, thetas, object_ids, pos_angle_threshold=30, pclean=0.3, snr1=[1.5], 
-                 dfu=[10000], Apix=5.0, ang=0.0, kv=300, cs=2.7, wgh=0.1, ps=0.0, proj_per_obj=192, img_size=128):
+                 dfu=[10000], Apix=5.0, ang=0.0, kv=300, cs=2.7, wgh=0.1, ps=0.0, proj_per_obj=192, img_size=128, p_hard=0.25):
         """
         Dataset for contrastive learning of image projections.
         
@@ -63,6 +63,7 @@ class ContrastiveProjectionDataset(Dataset):
         self.pclean = pclean
         self.proj_per_obj = proj_per_obj
         self.img_size = img_size
+        self.p_hard = p_hard
 
         # Create a Lattice object for transformations
         self.lat = Lattice(img_size + 1)
@@ -106,14 +107,31 @@ class ContrastiveProjectionDataset(Dataset):
         pos_idx = valid_indices[torch.randint(len(valid_indices), (1,))].item()
         pos_img = self.images[obj_idx, pos_idx]
         
-        # Get negative pair from different object
-        neg_obj_idx = torch.randint(len(self.object_ids), (1,)).item()
-        while neg_obj_idx == obj_idx:  # Ensure different object
-            neg_obj_idx = torch.randint(len(self.object_ids), (1,)).item()
+        # With probability p_hard, select hard negative from same object
+        if torch.rand(1).item() < self.p_hard:
+            # Calculate cross correlations between anchor and all projections of same object
+            anchor_flat = anchor_img.flatten()
+            all_projs = self.images[obj_idx].reshape(self.proj_per_obj, -1)
+            cross_corrs = F.cosine_similarity(anchor_flat, all_projs)
             
-        neg_proj_idx = torch.randint(self.images.shape[1], (1,)).item()
-        neg_img = self.images[neg_obj_idx, neg_proj_idx]
-        neg_obj = self.object_ids[neg_obj_idx]
+            # Get indices of bottom 25% correlations
+            _, indices = torch.sort(cross_corrs)
+            hard_neg_candidates = indices[:self.proj_per_obj//4]
+            
+            # Sample from hard negatives
+            neg_proj_idx = hard_neg_candidates[torch.randint(len(hard_neg_candidates), (1,))].item()
+            neg_img = self.images[obj_idx, neg_proj_idx]
+            neg_obj = self.object_ids[obj_idx]
+            
+        # Otherwise select negative from different object
+        else:
+            neg_obj_idx = torch.randint(len(self.object_ids), (1,)).item()
+            while neg_obj_idx == obj_idx:  # Ensure different object
+                neg_obj_idx = torch.randint(len(self.object_ids), (1,)).item()
+                
+            neg_proj_idx = torch.randint(self.images.shape[1], (1,)).item()
+            neg_img = self.images[neg_obj_idx, neg_proj_idx]
+            neg_obj = self.object_ids[neg_obj_idx]
 
         # Sample CTF parameters for anchor, positive and negative images
         anchor_ctf = torch.zeros(9)
