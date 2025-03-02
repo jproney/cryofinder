@@ -182,7 +182,9 @@ class ContrastiveProjectionDataset(Dataset):
             # Add Gaussian noise with probability p_noise
             p_noise = 0.5
             noise_mask = (torch.rand(corrupted.shape[0]) < p_noise).to(corrupted.device)
-            noise = torch.randn_like(corrupted) * 0.1  # 0.1 std dev for noise
+            # Generate random noise levels between 0.05 and 0.1 for each image
+            noise_levels = (torch.rand(corrupted.shape[0]) * 0.05 + 0.05).view(-1, 1, 1).to(corrupted.device)
+            noise = torch.randn_like(corrupted) * noise_levels  # Random noise with varying levels
             corrupted[noise_mask] = corrupted[noise_mask] + noise[noise_mask]
 
             # Apply random contrast adjustment with probability p_contrast 
