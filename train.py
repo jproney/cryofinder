@@ -191,8 +191,7 @@ trainer = pl.Trainer(
     callbacks=[checkpoint_callback],
     devices=1,
     accelerator='gpu',
-    gradient_clip_val=10.0,  # Add gradient clipping
-    limit_train_batches=100
+    gradient_clip_val=10.0  # Add gradient clipping
 )
 
 trainer.fit(training_module, train_loader, val_loader, ckpt_path=latest_checkpoint)
