@@ -171,10 +171,6 @@ class ContrastiveProjectionDataset(Dataset):
         images = images.view(-1, D, D)
         ctf_params = ctf_params.view(-1, 9)
 
-        if normalize:
-            # normalize every image individually and constrain the range of values
-            images = torch.clamp((images - images.mean(dim=(-1,-2), keepdim=True)) / images.std(dim=(-1,-2), keepdim=True), -5, 15)
-
         # Randomly generate rotations and translations
         rotations = torch.rand(B * N) * 2 * torch.pi  # Random rotations in radians
         translations = torch.randint(-7, 8, (B * N, 2)).to(torch.float)  # Random translations within a range
@@ -184,6 +180,11 @@ class ContrastiveProjectionDataset(Dataset):
         
         images = translate_images(images, translations, lat=lat, mask=mask, input_hartley=False, output_hartley=False).diagonal().permute([2,0,1])
         
+
+        if normalize:
+            # normalize every image individually and constrain the range of values
+            images = torch.clamp((images - images.mean(dim=(-1,-2), keepdim=True)) / images.std(dim=(-1,-2), keepdim=True), -5, 15)
+
 
         # Corrupt part of batch
         if ctf_corrupt:
@@ -203,8 +204,8 @@ class ContrastiveProjectionDataset(Dataset):
             # Apply random contrast adjustment with probability p_contrast 
             p_contrast = 0.75
             contrast_mask = (torch.rand(corrupted.shape[0]) < p_contrast).to(corrupted.device)
-            scales = (torch.rand(corrupted.shape[0]).to(corrupted.device) * 0.6 + 0.7).view(-1, 1, 1)  # Random scale in [0.7, 1.3]
-            shifts = ((torch.rand(corrupted.shape[0]).to(corrupted.device) - 0.5) * 0.4).view(-1, 1, 1)  # Random shift in [-0.4, 0.4]
+            scales = (torch.rand(corrupted.shape[0]).to(corrupted.device) + 0.5).view(-1, 1, 1)  # Random scale in [0.5, 1.5]
+            shifts = ((torch.rand(corrupted.shape[0]).to(corrupted.device) - 0.5) * 0.5).view(-1, 1, 1)  # Random shift in [-0.5, 0.5]
             corrupted[contrast_mask] = corrupted[contrast_mask] * scales[contrast_mask] + shifts[contrast_mask]
             
             # Reshape back to original dimensions
