@@ -152,7 +152,7 @@ class ContrastiveProjectionDataset(Dataset):
         return images, ctf_params, torch.tensor([anchor_obj, anchor_obj, neg_obj])
 
     @staticmethod
-    def collate_fn(batch, lat, mask, freqs, ctf_corrupt=False, noise=False):
+    def collate_fn(batch, lat, mask, freqs, normalize=True, ctf_corrupt=False, noise=False):
         """
         Custom collate function to corrupt batches of triplet images with CTF and noise
         Args:
@@ -171,27 +171,40 @@ class ContrastiveProjectionDataset(Dataset):
         images = images.view(-1, D, D)
         ctf_params = ctf_params.view(-1, 9)
 
+        if normalize:
+            # normalize every image individually and constrain the range of values
+            images = torch.clamp((images - images.mean(dim=(-1,-2), keepdim=True)) / images.std(dim=(-1,-2), keepdim=True), -5, 15)
+
+        # Randomly generate rotations and translations
+        rotations = torch.rand(B * N) * 2 * torch.pi  # Random rotations in radians
+        translations = torch.randint(-7, 8, (B * N, 2)).to(torch.float)  # Random translations within a range
+
+        # Apply random rotations and translations
+        images = rotate_images(images, rotations, lat=lat, mask=mask, input_hartley=False, output_hartley=False).diagonal().permute([2,0,1])
+        
+        images = translate_images(images, translations, lat=lat, mask=mask, input_hartley=False, output_hartley=False).diagonal().permute([2,0,1])
+        
+
         # Corrupt part of batch
         if ctf_corrupt:
             corrupted = corrupt_with_ctf(images, ctf_params[:,2:], ctf_params[:,0], ctf_params[:,1], freqs)
         elif noise:
             # Reshape to apply transformations independently per image
             corrupted = images.clone()  # Shape: (B, 3, 128, 128)
-            corrupted = corrupted.view(-1, 128, 128)  # Shape: (B*3, 128, 128)
             
             # Add Gaussian noise with probability p_noise
-            p_noise = 0.5
+            p_noise = 0.75
             noise_mask = (torch.rand(corrupted.shape[0]) < p_noise).to(corrupted.device)
-            # Generate random noise levels between 0.05 and 0.1 for each image
-            noise_levels = (torch.rand(corrupted.shape[0]) * 0.05 + 0.05).view(-1, 1, 1).to(corrupted.device)
+            # Generate random noise levels between 0.0 and 0.25 for each image
+            noise_levels = (torch.rand(corrupted.shape[0]) * 0.25).view(-1, 1, 1).to(corrupted.device)
             noise = torch.randn_like(corrupted) * noise_levels  # Random noise with varying levels
             corrupted[noise_mask] = corrupted[noise_mask] + noise[noise_mask]
 
             # Apply random contrast adjustment with probability p_contrast 
-            p_contrast = 0.5
+            p_contrast = 0.75
             contrast_mask = (torch.rand(corrupted.shape[0]) < p_contrast).to(corrupted.device)
-            scales = (torch.rand(corrupted.shape[0]).to(corrupted.device) * 0.4 + 0.8).view(-1, 1, 1)  # Random scale in [0.8, 1.2]
-            shifts = ((torch.rand(corrupted.shape[0]).to(corrupted.device) - 0.5) * 0.2).view(-1, 1, 1)  # Random shift in [-0.1, 0.1]
+            scales = (torch.rand(corrupted.shape[0]).to(corrupted.device) * 0.6 + 0.7).view(-1, 1, 1)  # Random scale in [0.7, 1.3]
+            shifts = ((torch.rand(corrupted.shape[0]).to(corrupted.device) - 0.5) * 0.4).view(-1, 1, 1)  # Random shift in [-0.4, 0.4]
             corrupted[contrast_mask] = corrupted[contrast_mask] * scales[contrast_mask] + shifts[contrast_mask]
             
             # Reshape back to original dimensions
@@ -200,18 +213,6 @@ class ContrastiveProjectionDataset(Dataset):
             corrupted = images
 
 
-        # Apply random rotations and translations after corruption
-        corrupted = corrupted.view(-1, D, D)
-
-        # Randomly generate rotations and translations
-        rotations = torch.rand(B * N) * 2 * torch.pi  # Random rotations in radians
-        translations = torch.randint(-7, 8, (B * N, 2)).to(torch.float)  # Random translations within a range
-
-        # Apply random rotations and translations
-        corrupted = rotate_images(corrupted, rotations, lat=lat, mask=mask, input_hartley=False, output_hartley=False).diagonal().permute([2,0,1])
-        
-        corrupted = translate_images(corrupted, translations, lat=lat, mask=mask, input_hartley=False, output_hartley=False).diagonal().permute([2,0,1])
-        
         # Reshape back to (batch, 3, D, D)
         corrupted = corrupted.view(B, N, D, D)
 
