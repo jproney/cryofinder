@@ -75,7 +75,7 @@ class ContrastiveLearningModule(pl.LightningModule):
 
         self.log('val_loss', loss)
 
-        self.val_embs.append((anchor_embeddings.detach().cpu(), ids.detach().cpu()))
+        self.val_embs.append((anchor_embeddings, ids))
 
         return loss
 
@@ -83,19 +83,36 @@ class ContrastiveLearningModule(pl.LightningModule):
         all_embeddings = torch.cat([x[0] for x in self.val_embs])
         all_labels = torch.cat([x[1] for x in self.val_embs])
 
-        # Compute confusion statistics
-        # Compute all pairwise cosine similarities
-        embeddings_norm = F.normalize(all_embeddings, p=2, dim=1)
-        similarities = torch.mm(embeddings_norm, embeddings_norm.t())
+        # Get unique object IDs and select one embedding per object
+        unique_labels, indices = torch.unique(all_labels, return_inverse=True)
+        query_mask = torch.zeros_like(all_labels, dtype=torch.bool)
+        for i in range(len(unique_labels)):
+            # Get first occurrence of each label
+            query_mask[torch.where(indices == i)[0][0]] = True
+            
+        query_embeddings = all_embeddings[query_mask]
+        query_labels = all_labels[query_mask]
 
-        # For each embedding, get indices of top 32 most similar embeddings
-        _, top_indices = torch.topk(similarities, k=32, dim=1)
+        # Normalize embeddings
+        query_embeddings = F.normalize(query_embeddings, p=2, dim=1)
+        all_embeddings_norm = F.normalize(all_embeddings, p=2, dim=1)
+
+        batch_size = 32  # Process in batches to save memory
+        top_k = 32
+        all_top_indices = []
         
-        # Get labels for the top 32 similar embeddings for each embedding
+        # Compute similarities in batches
+        for i in range(0, len(query_embeddings), batch_size):
+            batch_queries = query_embeddings[i:i+batch_size]
+            batch_similarities = torch.mm(batch_queries, all_embeddings_norm.t())
+            _, batch_top_indices = torch.topk(batch_similarities, k=top_k, dim=1)
+            all_top_indices.append(batch_top_indices)
+            
+        top_indices = torch.cat(all_top_indices, dim=0)
         top_labels = all_labels[top_indices]
         
-        # Compare with original labels to get fraction of matches
-        matches = (top_labels == all_labels.unsqueeze(1))
+        # Compare with query labels
+        matches = (top_labels == query_labels.unsqueeze(1))
         
         # Calculate fraction of matches (excluding self-match)
         match_frac = (matches[:,1:].float().mean(dim=1)).mean()
