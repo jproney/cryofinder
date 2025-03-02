@@ -123,7 +123,7 @@ class ContrastiveLearningModule(pl.LightningModule):
 parser = argparse.ArgumentParser(description='Contrastive Learning with PyTorch Lightning')
 parser.add_argument('--exp_name', type=str, help='Name of the experiment')
 parser.add_argument('--resume_run', type=str, help='Full experiment name to resume (e.g., "my_experiment_20240315_123456")')
-parser.add_argument('--batch_size', type=int, default=32, help='Batch size for training')
+parser.add_argument('--batch_size', type=int, default=64, help='Batch size for training')
 parser.add_argument('--embedding_dim', type=int, default=128, help='Dimension of the embedding space')
 parser.add_argument('--epochs', type=int, default=10, help='Number of training epochs')
 parser.add_argument('--log_dir', type=str, default='/home/gridsan/jroney/cryofinder-training', help='Directory to save logs and checkpoints')
@@ -190,6 +190,7 @@ trainer = pl.Trainer(
     devices=1,
     accelerator='gpu',
     gradient_clip_val=10.0  # Add gradient clipping
+    limit_train_batches=100
 )
 
 trainer.fit(training_module, train_loader, val_loader, ckpt_path=latest_checkpoint)
