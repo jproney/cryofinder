@@ -138,77 +138,78 @@ class ContrastiveLearningModule(pl.LightningModule):
             }
         }
 
+if __name__ == "__main__":
 
-parser = argparse.ArgumentParser(description='Contrastive Learning with PyTorch Lightning')
-parser.add_argument('--exp_name', type=str, help='Name of the experiment')
-parser.add_argument('--resume_run', type=str, help='Full experiment name to resume (e.g., "my_experiment_20240315_123456")')
-parser.add_argument('--batch_size', type=int, default=64, help='Batch size for training')
-parser.add_argument('--embedding_dim', type=int, default=128, help='Dimension of the embedding space')
-parser.add_argument('--epochs', type=int, default=10, help='Number of training epochs')
-parser.add_argument('--log_dir', type=str, default='/home/gridsan/jroney/cryofinder-training', help='Directory to save logs and checkpoints')
-args = parser.parse_args()
-
-
-# Create or load experiment name
-if args.resume_run:
-    exp_name = args.resume_run
-    print(f"Resuming training from experiment: {exp_name}")
-else:
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    exp_name = f"{args.exp_name}_{timestamp}"
-    log_dir = os.path.join(args.log_dir, exp_name)
-    os.makedirs(log_dir, exist_ok=True)
-
-print(f"Starting new experiment: {exp_name}")
-
-# Check for existing checkpoints
-checkpoint_dir = os.path.join(log_dir, 'checkpoints')
-latest_checkpoint=None
-if os.path.exists(checkpoint_dir):
-    existing_checkpoints = glob.glob(os.path.join(checkpoint_dir, '*.ckpt'))
-    if existing_checkpoints:
-        latest_checkpoint=max(existing_checkpoints, key=os.path.getmtime)
-
-# Setup logging
-logger = TensorBoardLogger(
-    save_dir=log_dir,
-    name='tensorboard',
-    default_hp_metric=False
-)
-
-# Setup checkpointing
-checkpoint_callback = ModelCheckpoint(
-    dirpath=os.path.join(log_dir, 'checkpoints'),
-    filename='{epoch:02d}-{val_match:.2f}',
-    save_top_k=1,
-    monitor='val_match_fraction',
-    mode='max',
-    save_last=True
-)
+    parser = argparse.ArgumentParser(description='Contrastive Learning with PyTorch Lightning')
+    parser.add_argument('--exp_name', type=str, help='Name of the experiment')
+    parser.add_argument('--resume_run', type=str, help='Full experiment name to resume (e.g., "my_experiment_20240315_123456")')
+    parser.add_argument('--batch_size', type=int, default=64, help='Batch size for training')
+    parser.add_argument('--embedding_dim', type=int, default=128, help='Dimension of the embedding space')
+    parser.add_argument('--epochs', type=int, default=10, help='Number of training epochs')
+    parser.add_argument('--log_dir', type=str, default='/home/gridsan/jroney/cryofinder-training', help='Directory to save logs and checkpoints')
+    args = parser.parse_args()
 
 
-# Load your dataset
-train_dat = torch.load("/home/gridsan/jroney/train_projections.pt")
-val_dat = torch.load("/home/gridsan/jroney/val_projections.pt")
+    # Create or load experiment name
+    if args.resume_run:
+        exp_name = args.resume_run
+        print(f"Resuming training from experiment: {exp_name}")
+    else:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        exp_name = f"{args.exp_name}_{timestamp}"
+        log_dir = os.path.join(args.log_dir, exp_name)
+        os.makedirs(log_dir, exist_ok=True)
 
-train_dataset = ContrastiveProjectionDataset(train_dat['images'], train_dat['phis'], train_dat['thetas'], train_dat['ids'], pos_angle_threshold=45)
-train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, collate_fn=lambda x: ContrastiveProjectionDataset.collate_fn(x, train_dataset.lat, train_dataset.mask, train_dataset.freqs, ctf_corrupt=False, noise=True))
+    print(f"Starting new experiment: {exp_name}")
 
-val_dataset = ContrastiveProjectionDataset(val_dat['images'], val_dat['phis'], val_dat['thetas'], val_dat['ids'])
-val_loader = DataLoader(val_dataset, batch_size=args.batch_size*10, shuffle=False)
+    # Check for existing checkpoints
+    checkpoint_dir = os.path.join(log_dir, 'checkpoints')
+    latest_checkpoint=None
+    if os.path.exists(checkpoint_dir):
+        existing_checkpoints = glob.glob(os.path.join(checkpoint_dir, '*.ckpt'))
+        if existing_checkpoints:
+            latest_checkpoint=max(existing_checkpoints, key=os.path.getmtime)
 
-# Initialize model and training module
-model = ContrastiveModel(embedding_dim=args.embedding_dim)
-training_module = ContrastiveLearningModule(model)
+    # Setup logging
+    logger = TensorBoardLogger(
+        save_dir=log_dir,
+        name='tensorboard',
+        default_hp_metric=False
+    )
 
-# Train the model
-trainer = pl.Trainer(
-    max_epochs=args.epochs,
-    logger=logger,
-    callbacks=[checkpoint_callback],
-    devices=1,
-    accelerator='gpu',
-    gradient_clip_val=10.0  # Add gradient clipping
-)
+    # Setup checkpointing
+    checkpoint_callback = ModelCheckpoint(
+        dirpath=os.path.join(log_dir, 'checkpoints'),
+        filename='{epoch:02d}-{val_match:.2f}',
+        save_top_k=1,
+        monitor='val_match_fraction',
+        mode='max',
+        save_last=True
+    )
 
-trainer.fit(training_module, train_loader, val_loader, ckpt_path=latest_checkpoint)
+
+    # Load your dataset
+    train_dat = torch.load("/home/gridsan/jroney/train_projections.pt")
+    val_dat = torch.load("/home/gridsan/jroney/val_projections.pt")
+
+    train_dataset = ContrastiveProjectionDataset(train_dat['images'], train_dat['phis'], train_dat['thetas'], train_dat['ids'], pos_angle_threshold=45)
+    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, collate_fn=lambda x: ContrastiveProjectionDataset.collate_fn(x, train_dataset.lat, train_dataset.mask, train_dataset.freqs, ctf_corrupt=False, noise=True))
+
+    val_dataset = ContrastiveProjectionDataset(val_dat['images'], val_dat['phis'], val_dat['thetas'], val_dat['ids'])
+    val_loader = DataLoader(val_dataset, batch_size=args.batch_size*10, shuffle=False)
+
+    # Initialize model and training module
+    model = ContrastiveModel(embedding_dim=args.embedding_dim)
+    training_module = ContrastiveLearningModule(model)
+
+    # Train the model
+    trainer = pl.Trainer(
+        max_epochs=args.epochs,
+        logger=logger,
+        callbacks=[checkpoint_callback],
+        devices=1,
+        accelerator='gpu',
+        gradient_clip_val=10.0  # Add gradient clipping
+    )
+
+    trainer.fit(training_module, train_loader, val_loader, ckpt_path=latest_checkpoint)
