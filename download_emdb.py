@@ -6,8 +6,8 @@ import mrcfile
 import shutil
 import pandas as pd
 
-def download_emdb_entry(emdb_id, output_dir="~/val_2025_dataset"):
-    emdb_id = emdb_id.lower().replace("emdb-", "")
+def download_emdb_entry(emdb_id, output_dir="/home/gridsan/jroney/val_2025_dataset"):
+    emdb_id = emdb_id.split('-')[-1]
     
     # Ensure output directory exists
     os.makedirs(output_dir, exist_ok=True)
