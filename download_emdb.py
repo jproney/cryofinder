@@ -48,7 +48,7 @@ def load_map(map_path):
 # df = pd.read_csv("/nobackup/users/jamesron/siren_maps.csv")
 # emdb_ids = df['emdb_id'].astype(str).tolist()
 
-embds = open('val2025_maps.txt', 'r').readlines()
+embds = [x[:-1] for x in open('val2025_maps.txt', 'r').readlines()]
 
 for e in embds:
     download_emdb_entry(e)
