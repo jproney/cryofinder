@@ -14,6 +14,7 @@ def download_emdb_entry(emdb_id, output_dir="/home/gridsan/jroney/val_2025_datas
     
     # Download density map (if exists)
     map_url = f"https://ftp.ebi.ac.uk/pub/databases/emdb/structures/EMD-{emdb_id}/map/emd_{emdb_id}.map.gz"
+    print(map_url)
     map_path = os.path.join(output_dir, f"emd_{emdb_id}.map.gz")
     extracted_map_path = os.path.join(output_dir, f"emd_{emdb_id}.map")
 
