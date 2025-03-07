@@ -6,7 +6,7 @@ import mrcfile
 import shutil
 import pandas as pd
 
-def download_emdb_entry(emdb_id, output_dir="/nobackup/users/jamesron/emdb_data"):
+def download_emdb_entry(emdb_id, output_dir="~/val_2025_dataset"):
     emdb_id = emdb_id.lower().replace("emdb-", "")
     
     # Ensure output directory exists
