@@ -203,7 +203,7 @@ def optimize_theta_trans(ref_images, query_images, trans, rot, fast_rotate=False
                                                     pairwise_corr.shape[3]   # rotations
                                                     )), dim=1)
 
-    return best_corr, best_indices
+    return best_corr, best_indices, pairwise_corr.amax(dim=(-1,-2))
 
 def optimize_theta_trans_chunked(ref_images, query_images, trans, rot, chunk_size=100, fast_rotate=False, fast_translate=False, refine_fast_translate=True, max_trans=14):
     """
@@ -232,6 +232,8 @@ def optimize_theta_trans_chunked(ref_images, query_images, trans, rot, chunk_siz
         M = ref_images.shape[0]
         chunk_files = [None]
     
+    corr_all = []
+
     # Initialize arrays to store best results
     best_corr = torch.full((N,), float('-inf'), device=device)
     best_indices = torch.zeros((N, 3), dtype=torch.long, device=device)
@@ -257,7 +259,7 @@ def optimize_theta_trans_chunked(ref_images, query_images, trans, rot, chunk_siz
             chunk_end = min(chunk_start + chunk_size, M)
             chunk_refs = ref_images[chunk_start:chunk_end].to(device)
             # Get correlations for this chunk
-            chunk_best_vals, chunk_best_indices = optimize_theta_trans(chunk_refs, query_rot_images, trans, rot, fast_rotate, fast_translate, refine_fast_translate=refine_fast_translate, max_trans=max_trans, mask=mask, lat=lat, pre_rotated=True)        
+            chunk_best_vals, chunk_best_indices, corr = optimize_theta_trans(chunk_refs, query_rot_images, trans, rot, fast_rotate, fast_translate, refine_fast_translate=refine_fast_translate, max_trans=max_trans, mask=mask, lat=lat, pre_rotated=True)        
 
             # Adjust reference indices to account for chunking
             chunk_best_indices[:,0] += chunk_start + global_offset
@@ -267,6 +269,8 @@ def optimize_theta_trans_chunked(ref_images, query_images, trans, rot, chunk_siz
             best_corr[better_mask] = chunk_best_vals[better_mask]
             best_indices[better_mask] = chunk_best_indices[better_mask]
 
+            corr_all.append(corr)
+
         global_offset += M
 
-    return best_corr, best_indices
+    return best_corr, best_indices, torch.cat(corr, dim=-1)
