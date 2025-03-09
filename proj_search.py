@@ -273,4 +273,4 @@ def optimize_theta_trans_chunked(ref_images, query_images, trans, rot, chunk_siz
 
         global_offset += M
 
-    return best_corr, best_indices, torch.cat(corr, dim=-1)
+    return best_corr, best_indices, torch.cat(corr_all, dim=-1)
