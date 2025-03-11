@@ -240,8 +240,8 @@ def main(args):
             extra_angs = (np.array([0., 0.]), np.array([0., np.pi]))
             extra_quats = so3_grid.hopf_to_quat(extra_angs[0], extra_angs[1], np.zeros((2,)))
 
-            pose_angs = (np.concatenate([a,b]) for a,b in zip(pose_angs, extra_angs))
-            quats = (np.concatenate([a,b]) for a,b in zip(quats, extra_quats))
+            pose_angs = [np.concatenate([a,b]) for a,b in zip(pose_angs, extra_angs)]
+            quats = [np.concatenate([a,b]) for a,b in zip(quats, extra_quats)]
 
         rots = lie_tools.quaternions_to_SO3(torch.from_numpy(quats)).to(device)
         print(f'Generating {rots.shape[0]} SO2 rotations at resolution level {args.healpy_so2_grid}')    
