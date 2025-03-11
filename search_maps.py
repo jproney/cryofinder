@@ -43,6 +43,8 @@ angles = torch.tensor(so3_grid.grid_s1(2), dtype=torch.float)
 all_res = []
 
 for query_batch, e in zip(query_imgs_raw, emds):
-    print(f"running queries for {emds}")
+    print(f"running queries for {e}")
+    if os.path.exists('/home/gridsan/jroney/val_2025_dataset/' + e + "_search_res.pt"):
+        continue
     best_corr, best_indices, corr = optimize_theta_trans_chunked((images_all_raw - images_all_raw.mean(dim=(-1,-2), keepdim=True)).view([-1,128,128]), (query_batch - query_batch.mean(dim=(-1,-2), keepdim=True)).cuda(), trans.cuda(), angles, chunk_size=30, fast_translate=False, fast_rotate=True, refine_fast_translate=False)
-    torch.save({"best_corr" : best_corr, "best_indices" : best_indices, "corr" : corr}, '/home/gridsan/jroney/val_2025_dataset/' + e + "_search_res.pt")
+    torch.save({"best_corr" : best_corr.cpu(), "best_indices" : best_indices.cpu(), "corr" : corr.cpu()}, '/home/gridsan/jroney/val_2025_dataset/' + e + "_search_res.pt")
