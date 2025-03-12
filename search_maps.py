@@ -37,8 +37,9 @@ query_imgs_raw = torch.stack(query_imglist)
 from proj_search import optimize_theta_trans_chunked
 
 from cryodrgn import shift_grid, so3_grid
-trans = torch.tensor(shift_grid.base_shift_grid(0, 7, 7, xshift=0, yshift=0))
+trans = torch.tensor(shift_grid.base_shift_grid(0, 2, 4, xshift=0, yshift=0))
 angles = torch.tensor(so3_grid.grid_s1(2), dtype=torch.float)
+import time
 
 for query_batch, e in zip(query_imgs_raw, emds):
     print(f"running queries for {e}")
@@ -47,17 +48,20 @@ for query_batch, e in zip(query_imgs_raw, emds):
 
     query_batch = query_batch.cuda(non_blocking=True)  # Move to CUDA before computation
 
+    start_time = time.time()
     with torch.no_grad():  # Prevent unnecessary gradient tracking
         best_corr, best_indices, corr = optimize_theta_trans_chunked(
             (images_all_raw - images_all_raw.mean(dim=(-1,-2), keepdim=True)).view([-1,128,128]), 
             (query_batch - query_batch.mean(dim=(-1,-2), keepdim=True)), 
             trans.cuda(), 
             angles, 
-            chunk_size=30, 
+            chunk_size=80, 
             fast_translate=False, 
             fast_rotate=True, 
             refine_fast_translate=False
         )
+    end_time = time.time()
+    print(f"Search took {end_time - start_time:.2f} seconds")
 
     torch.save({"best_corr": best_corr.cpu(), "best_indices": best_indices.cpu(), "corr": corr.cpu()}, 
                '/home/gridsan/jroney/val_2025_dataset/' + e + "_search_res.pt")
