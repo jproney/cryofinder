@@ -37,7 +37,7 @@ query_imgs_raw = torch.stack(query_imglist)
 from proj_search import optimize_theta_trans_chunked
 
 from cryodrgn import shift_grid, so3_grid
-trans = torch.tensor(shift_grid.base_shift_grid(0, 2, 4, xshift=0, yshift=0))
+trans = torch.tensor(shift_grid.base_shift_grid(0, 0, 1, xshift=0, yshift=0))
 angles = torch.tensor(so3_grid.grid_s1(2), dtype=torch.float)
 import time
 
@@ -55,7 +55,7 @@ for query_batch, e in zip(query_imgs_raw, emds):
             (query_batch - query_batch.mean(dim=(-1,-2), keepdim=True)), 
             trans.cuda(), 
             angles, 
-            chunk_size=80, 
+            chunk_size=1280, 
             fast_translate=False, 
             fast_rotate=True, 
             refine_fast_translate=False
