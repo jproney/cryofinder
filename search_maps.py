@@ -70,10 +70,10 @@ for query_batch, e in zip(query_imgs_raw, emds):
     print(f"running queries for {e}")
     output_file_name = f'/home/gridsan/jroney/val_2025_dataset/{e}_search_res_rot{rotation_resol}_trans{num_translations}_extent{translation_extent}'
     if not args.fast_rotate:
-        output_file_name += + "_slowrotate"
+        output_file_name = output_file_name + "_slowrotate"
     if args.realspace_corr:
-        output_file_name += + "_realspace"
-    output_file_name += ".pt"
+        output_file_name = output_file_name + "_realspace"
+    output_file_name = output_file_name + ".pt"
 
     if os.path.exists(output_file_name):
         continue
