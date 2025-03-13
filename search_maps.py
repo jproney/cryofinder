@@ -46,6 +46,8 @@ parser.add_argument('--num_translations', type=int, default=1, help='Number of t
 parser.add_argument('--translation_extent', type=int, default=0, help='Extent of the translations')
 parser.add_argument('--chunk_size', type=int, default=1280, help='Chunk size for optimization')
 parser.add_argument('--fast_rotate', action="store_true", help="use fast rotation thing from cryodrgn")
+parser.add_argument('--realspace_corr', action="store_true", help="compute correlation in real space instead of hartley")
+
 args = parser.parse_args()
 
 # Use command-line arguments for the number of rotations, translations, translation extent, and chunk size
@@ -55,16 +57,24 @@ translation_extent = args.translation_extent
 chunk_size = args.chunk_size
 
 # Generate translation and rotation grids based on the parameters
-trans = torch.tensor(shift_grid.base_shift_grid(0, translation_extent, num_translations, xshift=0, yshift=0))
+if translation_extent == 0 or num_translations == 1:
+    trans = None
+else:
+    trans = torch.tensor(shift_grid.base_shift_grid(0, translation_extent, num_translations, xshift=0, yshift=0))
+
 angles = torch.tensor(so3_grid.grid_s1(rotation_resol), dtype=torch.float)
 
 import time
 
 for query_batch, e in zip(query_imgs_raw, emds):
     print(f"running queries for {e}")
-    output_file_name = f'/home/gridsan/jroney/val_2025_dataset/{e}_search_res_rot{rotation_resol}_trans{num_translations}_extent{translation_extent}.pt'
+    output_file_name = f'/home/gridsan/jroney/val_2025_dataset/{e}_search_res_rot{rotation_resol}_trans{num_translations}_extent{translation_extent}'
     if not args.fast_rotate:
-        output_file_name = output_file_name[:-3] + "_slowrotate.pt"
+        output_file_name += + "_slowrotate"
+    if args.realspace_corr:
+        output_file_name += + "_realspace"
+    output_file_name += ".pt"
+
     if os.path.exists(output_file_name):
         continue
 
@@ -79,6 +89,7 @@ for query_batch, e in zip(query_imgs_raw, emds):
             angles, 
             chunk_size=chunk_size,
             fast_rotate=args.fast_rotate, 
+            hartley_corr= not args.realspace_corr
         )
     end_time = time.time()
     search_time = end_time - start_time
