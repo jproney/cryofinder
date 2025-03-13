@@ -223,6 +223,8 @@ def optimize_theta_trans_chunked(ref_images, query_images, trans, rot, chunk_siz
             if trans is None:
                 # just create a fake extra dim
                 chunk_refs = chunk_refs.unsqueeze(1)
+            print(chunk_refs.shape)
+            print(query_rot_images.shape)
 
             # Get correlations for this chunk
             chunk_best_vals, chunk_best_indices, corr = optimize_theta_trans(chunk_refs, query_rot_images, trans, None, fast_rotate=fast_rotate, mask=mask, lat=lat, input_hartley=hartley_corr, hartley_corr=hartley_corr)        
