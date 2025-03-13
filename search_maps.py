@@ -60,7 +60,7 @@ chunk_size = args.chunk_size
 if translation_extent == 0 or num_translations == 1:
     trans = None
 else:
-    trans = torch.tensor(shift_grid.base_shift_grid(0, translation_extent, num_translations, xshift=0, yshift=0))
+    trans = torch.tensor(shift_grid.base_shift_grid(0, translation_extent, num_translations, xshift=0, yshift=0)).cuda()
 
 angles = torch.tensor(so3_grid.grid_s1(rotation_resol), dtype=torch.float)
 
@@ -85,7 +85,7 @@ for query_batch, e in zip(query_imgs_raw, emds):
         best_corr, best_indices, corr = optimize_theta_trans_chunked(
             (images_all_raw - images_all_raw.mean(dim=(-1,-2), keepdim=True)).view([-1,128,128]), 
             (query_batch - query_batch.mean(dim=(-1,-2), keepdim=True)), 
-            trans.cuda(), 
+            trans, 
             angles, 
             chunk_size=chunk_size,
             fast_rotate=args.fast_rotate, 
