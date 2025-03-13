@@ -128,6 +128,8 @@ def optimize_theta_trans(ref_images, query_images, trans, rot, fast_rotate=False
         query_ht = fft.symmetrize_ht(query_ht)
 
         # Use rotate_images function instead of duplicating rotation logic
+        if not fast_rotate:
+            rot = rot.cuda()
         query_rot_images = rotate_images(query_ht, rot, lat=lat, mask=mask, fast_rotate=fast_rotate)
     else:
         query_rot_images = query_images
