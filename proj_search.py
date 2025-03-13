@@ -245,6 +245,9 @@ def optimize_theta_trans_chunked(ref_images, query_images, trans, rot, chunk_siz
     mask = lat.get_circular_mask((query_images.shape[1]) // 2)
     query_ht = fft.ht2_center(query_images)
     query_ht = fft.symmetrize_ht(query_ht)
+
+    if not fast_rotate:
+        rot = rot.cuda()
     query_rot_images = rotate_images(query_ht, rot, lat=lat, mask=mask, fast_rotate=fast_rotate)
     
     # Process reference images in chunks
