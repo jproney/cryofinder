@@ -78,9 +78,7 @@ for query_batch, e in zip(query_imgs_raw, emds):
             trans.cuda(), 
             angles, 
             chunk_size=chunk_size,
-            fast_translate=False, 
             fast_rotate=args.fast_rotate, 
-            refine_fast_translate=False
         )
     end_time = time.time()
     search_time = end_time - start_time
