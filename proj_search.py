@@ -120,6 +120,7 @@ def optimize_theta_trans(ref_images, query_images, trans, rot, fast_rotate=False
     if trans is not None:
         # outputs of translation in hartley space. Shape N x T x D x D
         ref_trans_images = translate_images(ref_images, trans, lat, mask, input_hartley=input_hartley, output_hartley=hartley_corr)
+        print(ref_trans_images.shape)
     else:            
         if not input_hartley and hartley_corr:
             ref_ht = fft.ht2_center(ref_images)
