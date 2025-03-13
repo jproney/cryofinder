@@ -101,7 +101,7 @@ for query_batch, e in zip(query_imgs_raw, emds):
         "best_indices": best_indices.cpu(), 
         "corr": corr.cpu(),
         "rotation_vectors": angles.cpu(),  # Save rotation vectors
-        "translation_vectors": trans.cpu(),  # Save translation vectors
+        "translation_vectors": None if trans is None else trans.cpu(),  # Save translation vectors
         "search_time": search_time  # Save the timing information
     }, output_file_name)
 

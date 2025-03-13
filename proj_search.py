@@ -144,7 +144,7 @@ def optimize_theta_trans(ref_images, query_images, trans, rot, fast_rotate=False
     ref_expanded = ref_trans_images.unsqueeze(1).unsqueeze(3)
 
 
-    # Compute normalized cross correlation in hartley space
+    # Compute normalized cross correlation
     pairwise_corr = ((query_expanded * ref_expanded).sum(dim=(-1,-2)) / (
         torch.std(query_expanded, dim=(-1,-2)) * torch.std(ref_expanded, dim=(-1,-2)))).transpose(0,1)
 
