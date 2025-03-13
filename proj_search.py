@@ -142,6 +142,8 @@ def optimize_theta_trans(ref_images, query_images, trans, rot, fast_rotate=False
 
     query_expanded = query_rot_images.unsqueeze(0).unsqueeze(2)
     ref_expanded = ref_trans_images.unsqueeze(1).unsqueeze(3)
+    print(query_expanded.shape)
+    print(ref_expanded.shape)
 
 
     # Compute normalized cross correlation
@@ -224,6 +226,7 @@ def optimize_theta_trans_chunked(ref_images, query_images, trans, rot, chunk_siz
             if trans is None:
                 # just create a fake extra dim
                 chunk_refs = chunk_refs.unsqueeze(1)
+
             # Get correlations for this chunk
             chunk_best_vals, chunk_best_indices, corr = optimize_theta_trans(chunk_refs, query_rot_images, trans, None, fast_rotate=fast_rotate, mask=mask, lat=lat, input_hartley=hartley_corr, hartley_corr=hartley_corr)        
 
