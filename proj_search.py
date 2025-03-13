@@ -142,9 +142,6 @@ def optimize_theta_trans(ref_images, query_images, trans, rot, fast_rotate=False
 
     query_expanded = query_rot_images.unsqueeze(0).unsqueeze(2)
     ref_expanded = ref_trans_images.unsqueeze(1).unsqueeze(3)
-    print(query_expanded.shape)
-    print(ref_expanded.shape)
-
 
     # Compute normalized cross correlation
     pairwise_corr = ((query_expanded * ref_expanded).sum(dim=(-1,-2)) / (
@@ -193,8 +190,8 @@ def optimize_theta_trans_chunked(ref_images, query_images, trans, rot, chunk_siz
     corr_all = []
 
     # Initialize arrays to store best results
-    best_corr = torch.full((N,), float('-inf'), device=device)
-    best_indices = torch.zeros((N, 3), dtype=torch.long, device=device)
+    best_corr = torch.full((N,), float('-inf'))
+    best_indices = torch.zeros((N, 3), dtype=torch.long)
     
     # Pre-compute rotated query images
     lat = Lattice(query_images.shape[1]+1, device=device)
@@ -229,6 +226,9 @@ def optimize_theta_trans_chunked(ref_images, query_images, trans, rot, chunk_siz
 
             # Get correlations for this chunk
             chunk_best_vals, chunk_best_indices, corr = optimize_theta_trans(chunk_refs, query_rot_images, trans, None, fast_rotate=fast_rotate, mask=mask, lat=lat, input_hartley=hartley_corr, hartley_corr=hartley_corr)        
+            chunk_best_vals = chunk_best_vals.cpu()
+            chunk_best_indices = chunk_best_indices.cpu()
+            corr = corr.cpu()
 
             # Adjust reference indices to account for chunking
             chunk_best_indices[:,0] += chunk_start + global_offset
