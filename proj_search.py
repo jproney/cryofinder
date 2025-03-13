@@ -106,7 +106,7 @@ def optimize_theta_trans(ref_images, query_images, trans, rot, fast_rotate=False
     hartley_corr - do the correlation in hartley space
     """
 
-    if len(trans.shape) == 2:
+    if trans is not None and len(trans.shape) == 2:
         trans = trans.unsqueeze(0)
 
     if lat is None:
