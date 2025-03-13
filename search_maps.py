@@ -41,27 +41,27 @@ from cryodrgn import shift_grid, so3_grid
 
 # Set up argument parser
 parser = argparse.ArgumentParser(description='Search maps with specified rotations and translations.')
-parser.add_argument('--num_rotations', type=int, default=2, help='Number of rotations to use')
+parser.add_argument('--rotation_resol', type=int, default=2, help='Number of rotations to use')
 parser.add_argument('--num_translations', type=int, default=1, help='Number of translations to use')
 parser.add_argument('--translation_extent', type=int, default=0, help='Extent of the translations')
 parser.add_argument('--chunk_size', type=int, default=1280, help='Chunk size for optimization')
 args = parser.parse_args()
 
 # Use command-line arguments for the number of rotations, translations, translation extent, and chunk size
-num_rotations = args.num_rotations
+rotation_resol = args.rotation_resol
 num_translations = args.num_translations
 translation_extent = args.translation_extent
 chunk_size = args.chunk_size
 
 # Generate translation and rotation grids based on the parameters
 trans = torch.tensor(shift_grid.base_shift_grid(0, translation_extent, num_translations, xshift=0, yshift=0))
-angles = torch.tensor(so3_grid.grid_s1(num_rotations), dtype=torch.float)
+angles = torch.tensor(so3_grid.grid_s1(rotation_resol), dtype=torch.float)
 
 import time
 
 for query_batch, e in zip(query_imgs_raw, emds):
     print(f"running queries for {e}")
-    output_file_name = f'/home/gridsan/jroney/val_2025_dataset/{e}_search_res_rot{num_rotations}_trans{num_translations}_extent{translation_extent}.pt'
+    output_file_name = f'/home/gridsan/jroney/val_2025_dataset/{e}_search_res_rot{rotation_resol}_trans{num_translations}_extent{translation_extent}.pt'
     if os.path.exists(output_file_name):
         continue
 
