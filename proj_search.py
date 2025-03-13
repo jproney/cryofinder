@@ -120,7 +120,6 @@ def optimize_theta_trans(ref_images, query_images, trans, rot, fast_rotate=False
     if trans is not None:
         # outputs of translation in hartley space. Shape N x T x D x D
         ref_trans_images = translate_images(ref_images, trans, lat, mask, input_hartley=input_hartley, output_hartley=hartley_corr)
-        print(ref_trans_images.shape)
     else:            
         if not input_hartley and hartley_corr:
             ref_ht = fft.ht2_center(ref_images)
@@ -144,14 +143,10 @@ def optimize_theta_trans(ref_images, query_images, trans, rot, fast_rotate=False
     query_expanded = query_rot_images.unsqueeze(0).unsqueeze(2)
     ref_expanded = ref_trans_images.unsqueeze(1).unsqueeze(3)
 
-    print(query_rot_images.shape)
-    print(ref_trans_images.shape)
-    print(query_expanded.shape)
-    print(ref_expanded.shape)
 
     # Compute normalized cross correlation in hartley space
-    pairwise_corr = (query_expanded * ref_expanded).sum(dim=(-1,-2)) / (
-        torch.std(query_expanded, dim=(-1,-2)) * torch.std(ref_expanded, dim=(-1,-2))).transpose(0,1)
+    pairwise_corr = ((query_expanded * ref_expanded).sum(dim=(-1,-2)) / (
+        torch.std(query_expanded, dim=(-1,-2)) * torch.std(ref_expanded, dim=(-1,-2)))).transpose(0,1)
 
     # Find best correlations in this chunk
     best_corr, best_indices = pairwise_corr.reshape(pairwise_corr.shape[0], -1).max(dim=-1)
@@ -229,9 +224,6 @@ def optimize_theta_trans_chunked(ref_images, query_images, trans, rot, chunk_siz
             if trans is None:
                 # just create a fake extra dim
                 chunk_refs = chunk_refs.unsqueeze(1)
-            print(chunk_refs.shape)
-            print(query_rot_images.shape)
-
             # Get correlations for this chunk
             chunk_best_vals, chunk_best_indices, corr = optimize_theta_trans(chunk_refs, query_rot_images, trans, None, fast_rotate=fast_rotate, mask=mask, lat=lat, input_hartley=hartley_corr, hartley_corr=hartley_corr)        
 
