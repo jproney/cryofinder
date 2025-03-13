@@ -45,6 +45,7 @@ parser.add_argument('--rotation_resol', type=int, default=2, help='Number of rot
 parser.add_argument('--num_translations', type=int, default=1, help='Number of translations to use')
 parser.add_argument('--translation_extent', type=int, default=0, help='Extent of the translations')
 parser.add_argument('--chunk_size', type=int, default=1280, help='Chunk size for optimization')
+parser.add_argument('--fast_rotate', action="store_true", help="use fast rotation thing from cryodrgn")
 args = parser.parse_args()
 
 # Use command-line arguments for the number of rotations, translations, translation extent, and chunk size
@@ -62,6 +63,8 @@ import time
 for query_batch, e in zip(query_imgs_raw, emds):
     print(f"running queries for {e}")
     output_file_name = f'/home/gridsan/jroney/val_2025_dataset/{e}_search_res_rot{rotation_resol}_trans{num_translations}_extent{translation_extent}.pt'
+    if not args.fast_rotate:
+        output_file_name = output_file_name[:-3] + "_slowrotate.pt"
     if os.path.exists(output_file_name):
         continue
 
@@ -76,7 +79,7 @@ for query_batch, e in zip(query_imgs_raw, emds):
             angles, 
             chunk_size=chunk_size,
             fast_translate=False, 
-            fast_rotate=True, 
+            fast_rotate=args.fast_rotate, 
             refine_fast_translate=False
         )
     end_time = time.time()
