@@ -201,6 +201,10 @@ def optimize_theta_trans_chunked(ref_images, query_images, trans, rot, chunk_siz
         rot = rot.to(query_images.device)
     query_rot_images = rotate_images(query_images, rot, lat=lat, mask=mask, fast_rotate=fast_rotate, input_hartley=False, output_hartley=hartley_corr)
     
+
+    # Pre-allocate a chunk of memory
+    chunk_refs = torch.empty(chunk_size, *ref_images.shape[1:], device=device)
+
     # Process reference images in chunks
     global_offset = 0
     for cf in chunk_files:
@@ -213,11 +217,11 @@ def optimize_theta_trans_chunked(ref_images, query_images, trans, rot, chunk_siz
 
         for chunk_start in range(0, M, chunk_size):
             chunk_end = min(chunk_start + chunk_size, M)
-            chunk_refs = ref_images[chunk_start:chunk_end].to(device)
+            chunk_refs[:chunk_end-chunk_start].copy_(ref_images[chunk_start:chunk_end])
 
             # put into hartley if needed
             if hartley_corr:
-                chunk_refs = fft.ht2_center(chunk_refs)
+                chunk_refs = fft.ht2_center(chunk_refs[:chunk_end-chunk_start])
                 chunk_refs = fft.symmetrize_ht(chunk_refs)
 
             if trans is None:
