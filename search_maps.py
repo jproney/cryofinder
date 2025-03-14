@@ -35,6 +35,18 @@ for i,e in enumerate(emds):
 query_imgs_raw = torch.stack(query_imglist)
 
 
+import pandas as pd
+
+dat = pd.read_csv("../val2025_map_data.csv")
+scaled_pix = torch.clamp(torch.ceil(torch.tensor(dat["raw_box_size_pixel"] * dat['raw_pixel_size_angstrom'] / 5)), None, 128)
+
+y, x = torch.meshgrid(torch.arange(128), torch.arange(128), indexing='ij')
+dist_squared = (x - 128//2) ** 2 + (y - 128//2) ** 2
+radius_squared = (scaled_pix / 2).view(scaled_pix.shape[0], 1, 1) ** 2
+circle_masks = (dist_squared.unsqueeze(0) < radius_squared)
+
+
+
 from proj_search import optimize_theta_trans_chunked
 
 from cryodrgn import shift_grid, so3_grid
@@ -89,7 +101,8 @@ for query_batch, e in zip(query_imgs_raw, emds):
             angles, 
             chunk_size=chunk_size,
             fast_rotate=args.fast_rotate, 
-            hartley_corr= not args.realspace_corr
+            hartley_corr= not args.realspace_corr,
+            query_mask=circle_masks
         )
     end_time = time.time()
     search_time = end_time - start_time

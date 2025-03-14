@@ -95,7 +95,7 @@ def rotate_images(images, rot, lat=None, mask=None, input_hartley=True, output_h
 
     return rot_images
 
-def optimize_theta_trans(ref_images, query_images, trans, rot, fast_rotate=False, input_hartley=False, hartley_corr=True, lat=None, mask=None):
+def optimize_theta_trans(ref_images, query_images, trans, rot, fast_rotate=False, input_hartley=False, hartley_corr=True, lat=None, mask=None, query_mask=None):
     """
     query_image - shape N x D x D, real space image
     ref_images - shape M x D x D, real space image
@@ -104,6 +104,7 @@ def optimize_theta_trans(ref_images, query_images, trans, rot, fast_rotate=False
     fast_rotate - do interpolation-based rotation, bool (needs to be done in hartley space)
     input_harley - is the input in hartley space?
     hartley_corr - do the correlation in hartley space
+    query_mask - shape N x D x D mask for the actual information-containing regions of the query images
     """
 
     if trans is not None and len(trans.shape) == 2:
@@ -140,12 +141,22 @@ def optimize_theta_trans(ref_images, query_images, trans, rot, fast_rotate=False
         else:
             query_rot_images = query_images
 
-    query_expanded = query_rot_images.unsqueeze(0).unsqueeze(2)
+    query_expanded = query_rot_images.unsqueeze(0).unsqueeze(2) 
     ref_expanded = ref_trans_images.unsqueeze(1).unsqueeze(3)
 
-    # Compute normalized cross correlation
+    if query_mask is not None:
+        query_mask = query_mask.unsqueeze(0).unsqueeze(2).unsqueeze(3)
+
+        # make zero-mean in the mask region
+        query_expanded -= (query_expanded * query_mask).sum(dim=(-1,-2), keepdim=True) / query_mask.sum(dim=(-1,-2), keepdim=True) 
+        query_expanded *= query_mask
+
+        ref_expanded -= (ref_expanded * query_mask).sum(dim=(-1,-2), keepdim=True) / query_mask.sum(dim=(-1,-2), keepdim=True) 
+        ref_expanded *= query_mask
+
+    # Compute cross correlation, assumes images are already zero mean!
     pairwise_corr = ((query_expanded * ref_expanded).sum(dim=(-1,-2)) / (
-        torch.std(query_expanded, dim=(-1,-2)) * torch.std(ref_expanded, dim=(-1,-2)))).transpose(0,1)
+        torch.sqrt(query_expanded.pow(2).sum(dim=(-1,-2))) * torch.sqrt(ref_expanded.pow(2).sum(dim=(-1,-2))))).transpose(0,1)
 
     # Find best correlations in this chunk
     best_corr, best_indices = pairwise_corr.reshape(pairwise_corr.shape[0], -1).max(dim=-1)
@@ -159,7 +170,7 @@ def optimize_theta_trans(ref_images, query_images, trans, rot, fast_rotate=False
 
     return best_corr, best_indices, pairwise_corr.amax(dim=(-1,-2))
 
-def optimize_theta_trans_chunked(ref_images, query_images, trans, rot, chunk_size=100, fast_rotate=False, hartley_corr=True):
+def optimize_theta_trans_chunked(ref_images, query_images, trans, rot, chunk_size=100, fast_rotate=False, hartley_corr=True, query_mask=None):
     """
     Memory-efficient version that processes reference images in chunks.
     
@@ -199,7 +210,7 @@ def optimize_theta_trans_chunked(ref_images, query_images, trans, rot, chunk_siz
 
     if not fast_rotate:
         rot = rot.to(query_images.device)
-    query_rot_images = rotate_images(query_images, rot, lat=lat, mask=mask, fast_rotate=fast_rotate, input_hartley=False, output_hartley=hartley_corr)
+    query_rot_images = rotate_images(query_images, rot, lat=lat, mask=mask, fast_rotate=fast_rotate, input_hartley=False, output_hartley=hartley_corr, query_mask=query_mask)
     
 
     # Pre-allocate a chunk of memory
@@ -217,8 +228,6 @@ def optimize_theta_trans_chunked(ref_images, query_images, trans, rot, chunk_siz
 
         for chunk_start in range(0, M, chunk_size):
             chunk_end = min(chunk_start + chunk_size, M)
-            print(chunk_refs.shape)
-            print(ref_images.shape)
             chunk_refs[:chunk_end-chunk_start].copy_(ref_images[chunk_start:chunk_end])
 
             # put into hartley if needed
