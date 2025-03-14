@@ -78,7 +78,7 @@ angles = torch.tensor(so3_grid.grid_s1(rotation_resol), dtype=torch.float)
 
 import time
 
-for query_batch, e in zip(query_imgs_raw, emds):
+for query_batch, e, m in zip(query_imgs_raw, emds, circle_masks):
     print(f"running queries for {e}")
     output_file_name = f'/home/gridsan/jroney/val_2025_dataset/{e}_search_res_rot{rotation_resol}_trans{num_translations}_extent{translation_extent}'
     if not args.fast_rotate:
@@ -102,7 +102,7 @@ for query_batch, e in zip(query_imgs_raw, emds):
             chunk_size=chunk_size,
             fast_rotate=args.fast_rotate, 
             hartley_corr= not args.realspace_corr,
-            query_mask=circle_masks if args.realspace_corr else None
+            query_mask=m.unsqueeze().cuda() if args.realspace_corr else None
         )
     end_time = time.time()
     search_time = end_time - start_time
