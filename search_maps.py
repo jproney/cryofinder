@@ -102,7 +102,7 @@ for query_batch, e, m in zip(query_imgs_raw, emds, circle_masks):
             chunk_size=chunk_size,
             fast_rotate=args.fast_rotate, 
             hartley_corr= not args.realspace_corr,
-            query_mask=m.unsqueeze().cuda() if args.realspace_corr else None
+            query_mask=m.unsqueeze(0).cuda() if args.realspace_corr else None
         )
     end_time = time.time()
     search_time = end_time - start_time
