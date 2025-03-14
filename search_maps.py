@@ -59,6 +59,7 @@ parser.add_argument('--translation_extent', type=int, default=0, help='Extent of
 parser.add_argument('--chunk_size', type=int, default=1280, help='Chunk size for optimization')
 parser.add_argument('--fast_rotate', action="store_true", help="use fast rotation thing from cryodrgn")
 parser.add_argument('--realspace_corr', action="store_true", help="compute correlation in real space instead of hartley")
+parser.add_argument('--mask_queries', action="store_true", help="mask the queries to only the actual particle region")
 
 args = parser.parse_args()
 
@@ -102,7 +103,7 @@ for query_batch, e, m in zip(query_imgs_raw, emds, circle_masks):
             chunk_size=chunk_size,
             fast_rotate=args.fast_rotate, 
             hartley_corr= not args.realspace_corr,
-            query_mask=m.unsqueeze(0).cuda() if args.realspace_corr else None
+            query_mask=m.unsqueeze(0).cuda() if args.mask_queries else None
         )
     end_time = time.time()
     search_time = end_time - start_time
