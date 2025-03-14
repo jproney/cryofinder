@@ -210,7 +210,7 @@ def optimize_theta_trans_chunked(ref_images, query_images, trans, rot, chunk_siz
 
     if not fast_rotate:
         rot = rot.to(query_images.device)
-    query_rot_images = rotate_images(query_images, rot, lat=lat, mask=mask, fast_rotate=fast_rotate, input_hartley=False, output_hartley=hartley_corr, query_mask=query_mask)
+    query_rot_images = rotate_images(query_images, rot, lat=lat, mask=mask, fast_rotate=fast_rotate, input_hartley=False, output_hartley=hartley_corr)
     
 
     # Pre-allocate a chunk of memory
@@ -242,7 +242,7 @@ def optimize_theta_trans_chunked(ref_images, query_images, trans, rot, chunk_siz
                 ref_input = ref_input.unsqueeze(1)
 
             # Get correlations for this chunk
-            chunk_best_vals, chunk_best_indices, corr = optimize_theta_trans(ref_input, query_rot_images, trans, None, fast_rotate=fast_rotate, mask=mask, lat=lat, input_hartley=hartley_corr, hartley_corr=hartley_corr)        
+            chunk_best_vals, chunk_best_indices, corr = optimize_theta_trans(ref_input, query_rot_images, trans, None, fast_rotate=fast_rotate, mask=mask, lat=lat, input_hartley=hartley_corr, hartley_corr=hartley_corr, query_mask=query_mask)        
             chunk_best_vals = chunk_best_vals.cpu()
             chunk_best_indices = chunk_best_indices.cpu()
             corr = corr.cpu()
