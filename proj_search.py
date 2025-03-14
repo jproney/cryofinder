@@ -217,19 +217,23 @@ def optimize_theta_trans_chunked(ref_images, query_images, trans, rot, chunk_siz
 
         for chunk_start in range(0, M, chunk_size):
             chunk_end = min(chunk_start + chunk_size, M)
+            print(chunk_refs.shape)
+            print(ref_images.shape)
             chunk_refs[:chunk_end-chunk_start].copy_(ref_images[chunk_start:chunk_end])
 
             # put into hartley if needed
             if hartley_corr:
-                chunk_refs = fft.ht2_center(chunk_refs[:chunk_end-chunk_start])
-                chunk_refs = fft.symmetrize_ht(chunk_refs)
+                ref_input = fft.ht2_center(chunk_refs[:chunk_end-chunk_start])
+                ref_input = fft.symmetrize_ht(ref_input)
+            else:
+                ref_input = chunk_refs[:chunk_end-chunk_start]
 
             if trans is None:
                 # just create a fake extra dim
-                chunk_refs = chunk_refs.unsqueeze(1)
+                ref_input = ref_input.unsqueeze(1)
 
             # Get correlations for this chunk
-            chunk_best_vals, chunk_best_indices, corr = optimize_theta_trans(chunk_refs, query_rot_images, trans, None, fast_rotate=fast_rotate, mask=mask, lat=lat, input_hartley=hartley_corr, hartley_corr=hartley_corr)        
+            chunk_best_vals, chunk_best_indices, corr = optimize_theta_trans(ref_input, query_rot_images, trans, None, fast_rotate=fast_rotate, mask=mask, lat=lat, input_hartley=hartley_corr, hartley_corr=hartley_corr)        
             chunk_best_vals = chunk_best_vals.cpu()
             chunk_best_indices = chunk_best_indices.cpu()
             corr = corr.cpu()
