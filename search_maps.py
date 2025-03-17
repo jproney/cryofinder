@@ -156,7 +156,7 @@ for query_batch, e, m in zip(query_imgs_raw, emds, circle_masks):
         "corr_pf": corr_pf.cpu() if args.postfilter else None,  # Save postfilter correlations
         "mbq_indices": mbq_indices.cpu() if args.postfilter else None,  # Save mbq indices
         "rotation_vectors_pf": angles_pf.cpu() if args.postfilter else None,  # Save postfilter rotation vectors
-        "translation_vectors_pf": None if trans_pf is None else trans_pf.cpu() if args.postfilter else None  # Save postfilter translation vectors
+        "translation_vectors_pf": (None if trans_pf is None else trans_pf.cpu()) if args.postfilter else None  # Save postfilter translation vectors
     }, output_file_name)
 
     # Cleanup
