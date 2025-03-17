@@ -63,6 +63,7 @@ parser.add_argument('--mask_queries', action="store_true", help="mask the querie
 
 # Add missing arguments for postfilter
 parser.add_argument('--postfilter', action="store_true", help="Enable postfiltering of best densities")
+parser.add_argument('--pf_all_proj', action="store_true", help="Postfilter the top hits from each projection, not just the mean top hits")
 parser.add_argument('--postfilter_num', type=int, default=64, help="Number of top densities to postfilter")
 parser.add_argument('--translation_extent_pf', type=int, default=7, help="Extent of translations for postfiltering")
 parser.add_argument('--num_translations_pf', type=int, default=7, help="Number of translations for postfiltering")
