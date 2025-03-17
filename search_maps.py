@@ -53,7 +53,7 @@ from cryodrgn import shift_grid, so3_grid
 
 # Set up argument parser
 parser = argparse.ArgumentParser(description='Search maps with specified rotations and translations.')
-parser.add_argument('--rotation_resol', type=int, default=2, help='Number of rotations to use')
+parser.add_argument('--rotation_resol', type=int, default=1, help='Number of rotations to use')
 parser.add_argument('--num_translations', type=int, default=1, help='Number of translations to use')
 parser.add_argument('--translation_extent', type=int, default=0, help='Extent of the translations')
 parser.add_argument('--chunk_size', type=int, default=1280, help='Chunk size for optimization')
@@ -67,6 +67,7 @@ parser.add_argument('--postfilter_num', type=int, default=64, help="Number of to
 parser.add_argument('--translation_extent_pf', type=int, default=7, help="Extent of translations for postfiltering")
 parser.add_argument('--num_translations_pf', type=int, default=7, help="Number of translations for postfiltering")
 parser.add_argument('--rotation_resol_pf', type=int, default=2, help="Number of rotations for postfiltering")
+parser.add_argument('--postfilter_chunk_size', type=int, default=1280, help="Chunk size for postfiltering")
 
 args = parser.parse_args()
 
@@ -132,7 +133,7 @@ for query_batch, e, m in zip(query_imgs_raw, emds, circle_masks):
                 (query_batch - query_batch.mean(dim=(-1,-2), keepdim=True)), 
                 trans_pf, 
                 angles_pf, 
-                chunk_size=chunk_size,
+                chunk_size=args.postfilter_chunk_size,
                 fast_rotate=args.fast_rotate, 
                 hartley_corr= not args.realspace_corr,
                 query_mask=m.unsqueeze(0).cuda() if args.mask_queries else None
