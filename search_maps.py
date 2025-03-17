@@ -61,6 +61,13 @@ parser.add_argument('--fast_rotate', action="store_true", help="use fast rotatio
 parser.add_argument('--realspace_corr', action="store_true", help="compute correlation in real space instead of hartley")
 parser.add_argument('--mask_queries', action="store_true", help="mask the queries to only the actual particle region")
 
+# Add missing arguments for postfilter
+parser.add_argument('--postfilter', action="store_true", help="Enable postfiltering of best densities")
+parser.add_argument('--postfilter_num', type=int, default=64, help="Number of top densities to postfilter")
+parser.add_argument('--translation_extent_pf', type=int, default=7, help="Extent of translations for postfiltering")
+parser.add_argument('--num_translations_pf', type=int, default=7, help="Number of translations for postfiltering")
+parser.add_argument('--rotation_resol_pf', type=int, default=2, help="Number of rotations for postfiltering")
+
 args = parser.parse_args()
 
 # Use command-line arguments for the number of rotations, translations, translation extent, and chunk size
@@ -81,12 +88,16 @@ import time
 
 for query_batch, e, m in zip(query_imgs_raw, emds, circle_masks):
     print(f"running queries for {e}")
-    output_file_name = f'/home/gridsan/jroney/val_2025_dataset/{e}_search_res_rot{rotation_resol}_trans{num_translations}_extent{translation_extent}'
-    if not args.fast_rotate:
-        output_file_name = output_file_name + "_slowrotate"
-    if args.realspace_corr:
-        output_file_name = output_file_name + "_realspace"
-    output_file_name = output_file_name + ".pt"
+    output_file_name = (
+        f'/home/gridsan/jroney/search_results/{e}_search_res'
+        f'_rot{rotation_resol}_trans{num_translations}_extent{translation_extent}'
+        f'{"_fastrotate" if args.fast_rotate else "_slowrotate"}'
+        f'{"_realspace" if args.realspace_corr else "_hartley"}'
+        f'{"_maskqueries" if args.mask_queries else ""}'
+        f'_postfilternum{args.postfilter_num}'
+        f'_transpf{args.translation_extent_pf}_numtranspf{args.num_translations_pf}'
+        f'_rotpf{args.rotation_resol_pf}.pt'
+    )
 
     if os.path.exists(output_file_name):
         continue
@@ -105,6 +116,28 @@ for query_batch, e, m in zip(query_imgs_raw, emds, circle_masks):
             hartley_corr= not args.realspace_corr,
             query_mask=m.unsqueeze(0).cuda() if args.mask_queries else None
         )
+
+        if args.postfilter: # postfilter the best densities by runnign them again
+            corr = corr.cpu()
+            mean_best_per_query = corr.view([query_batch.shape[0],-1,192]).max(dim=-1)[0].mean(dim=0)
+            mbq_indices = mean_best_per_query.topk(args.postfilter_num, dim=-1)[1]
+
+            pf_images_raw = images_all_raw[mbq_indices] # filter best densities
+
+            trans_pf = torch.tensor(shift_grid.base_shift_grid(0, args.translation_extent_pf, args.num_translations_pf, xshift=0, yshift=0)).cuda()
+            angles_pf = torch.tensor(so3_grid.grid_s1(args.rotation_resol_pf), dtype=torch.float)
+
+            best_corr_pf, best_indices_pf, corr_pf = optimize_theta_trans_chunked(
+                (pf_images_raw - pf_images_raw.mean(dim=(-1,-2), keepdim=True)).view([-1,128,128]), 
+                (query_batch - query_batch.mean(dim=(-1,-2), keepdim=True)), 
+                trans_pf, 
+                angles_pf, 
+                chunk_size=chunk_size,
+                fast_rotate=args.fast_rotate, 
+                hartley_corr= not args.realspace_corr,
+                query_mask=m.unsqueeze(0).cuda() if args.mask_queries else None
+            )
+
     end_time = time.time()
     search_time = end_time - start_time
     print(f"Search took {search_time:.2f} seconds")
@@ -116,7 +149,13 @@ for query_batch, e, m in zip(query_imgs_raw, emds, circle_masks):
         "corr": corr.cpu(),
         "rotation_vectors": angles.cpu(),  # Save rotation vectors
         "translation_vectors": None if trans is None else trans.cpu(),  # Save translation vectors
-        "search_time": search_time  # Save the timing information
+        "search_time": search_time,  # Save the timing information
+        "best_corr_pf": best_corr_pf.cpu() if args.postfilter else None,  # Save postfilter best correlations
+        "best_indices_pf": best_indices_pf.cpu() if args.postfilter else None,  # Save postfilter best indices
+        "corr_pf": corr_pf.cpu() if args.postfilter else None,  # Save postfilter correlations
+        "mbq_indices": mbq_indices.cpu() if args.postfilter else None,  # Save mbq indices
+        "rotation_vectors_pf": angles_pf.cpu() if args.postfilter else None,  # Save postfilter rotation vectors
+        "translation_vectors_pf": None if trans_pf is None else trans_pf.cpu() if args.postfilter else None  # Save postfilter translation vectors
     }, output_file_name)
 
     # Cleanup
