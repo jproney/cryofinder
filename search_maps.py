@@ -136,8 +136,6 @@ for query_batch, e, m in zip(query_imgs_raw, emds, circle_masks):
 
             pf_images_raw = images_all_raw[unique_indices] # filter best densities
 
-            pf_images_raw = images_all_raw[mbq_indices] # filter best densities
-
             trans_pf = torch.tensor(shift_grid.base_shift_grid(0, args.translation_extent_pf, args.num_translations_pf, xshift=0, yshift=0)).cuda()
             angles_pf = torch.tensor(so3_grid.grid_s1(args.rotation_resol_pf), dtype=torch.float)
 
