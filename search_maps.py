@@ -18,7 +18,7 @@ images_val = dat_val['images']
 phis_val = dat_val['phis']
 thetas_val = dat_val['thetas']
 
-images_all_raw = torch.cat([images, images_val]).view((-1,128,128))
+images_all_raw = torch.cat([images, images_val])
 ids_all = torch.cat([ids, ids_val]).unsqueeze(-1).expand([-1, 192]).reshape((-1,))
 
 
