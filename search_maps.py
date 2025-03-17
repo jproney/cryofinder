@@ -123,6 +123,18 @@ for query_batch, e, m in zip(query_imgs_raw, emds, circle_masks):
             mean_best_per_query = corr.view([query_batch.shape[0],-1,192]).max(dim=-1)[0].mean(dim=0)
             mbq_indices = mean_best_per_query.topk(args.postfilter_num, dim=-1)[1]
 
+            if args.pf_all_proj:
+                best_per_query_proj = corr.view([query_batch.shape[0],-1,192]).max(dim=-1)[0]
+                bpqp_indices = best_per_query_proj.topk(args.postfilter_num, dim=-1)[1] # Nproj x 64
+                unique_indices = torch.unique(torch.cat([mbq_indices.unsqueeze(0), bpqp_indices]))
+            else:
+                bpqp_indices = None
+                unique_indices = torch.unique(mbq_indices)
+
+            print(f"Postfiltering {unique_indices.shape[0]} densities...")
+
+            pf_images_raw = images_all_raw[unique_indices] # filter best densities
+
             pf_images_raw = images_all_raw[mbq_indices] # filter best densities
 
             trans_pf = torch.tensor(shift_grid.base_shift_grid(0, args.translation_extent_pf, args.num_translations_pf, xshift=0, yshift=0)).cuda()
@@ -155,6 +167,8 @@ for query_batch, e, m in zip(query_imgs_raw, emds, circle_masks):
         "best_indices_pf": best_indices_pf.cpu() if args.postfilter else None,  # Save postfilter best indices
         "corr_pf": corr_pf.cpu() if args.postfilter else None,  # Save postfilter correlations
         "mbq_indices": mbq_indices.cpu() if args.postfilter else None,  # Save mbq indices
+        "unique_indices": unique_indices.cpu(),  # Save unique indices
+        "bpqp_indices" : bpqp_indices.cpu() if args.pf_all_proj else None,
         "rotation_vectors_pf": angles_pf.cpu() if args.postfilter else None,  # Save postfilter rotation vectors
         "translation_vectors_pf": (None if trans_pf is None else trans_pf.cpu()) if args.postfilter else None  # Save postfilter translation vectors
     }, output_file_name)
