@@ -17,25 +17,25 @@ dat = pd.read_csv(args.input_file)
 # Create output directory if it doesn't exist
 os.makedirs(args.output_dir, exist_ok=True)
 
-maplist = dat['emdb_map_file'][args.start:args.end]
+maplist = dat['map_name'][args.start:args.end]
 apixlist = dat['raw_pixel_size_angstrom'][args.start:args.end]
+sizelist = dat['raw_box_size_pixel'][args.start:args.end]
 
 print(f"Found {len(maplist)} .map files")
 
 # Process each map file
-for map_file, apix, dim in zip(dat['emdb_map_file'], dat['raw_pixel_size_angstrom'], dat['raw_box_size_pixel']):
+for map_name, apix, dim in zip(maplist, apixlist, sizelist):
 
 
-    input_path = os.path.join(args.input_dir, map_file)
-    basename = os.path.splitext(map_file)[0]
-    
+    input_path = os.path.join(args.input_dir, map_name) + ".map"
+
     # Setup output paths
-    outstack = os.path.join(args.output_dir, f"{basename}.mrcs")
-    out_pose = os.path.join(args.output_dir, f"{basename}_pose.pkl")
+    outstack = os.path.join(args.output_dir, f"{map_name}.mrcs")
+    out_pose = os.path.join(args.output_dir, f"{map_name}_pose.pkl")
     
     # Skip if output files already exist
     if os.path.exists(outstack) and os.path.exists(out_pose):
-        print(f"\nSkipping {map_file} - output files already exist")
+        print(f"\nSkipping {map_name} - output files already exist")
         continue
     
     # Build command
@@ -52,13 +52,13 @@ for map_file, apix, dim in zip(dat['emdb_map_file'], dat['raw_pixel_size_angstro
         out_pose
     ]
     
-    print(f"\nProcessing {map_file}...")
+    print(f"\nProcessing {map_name}...")
     print(f"Command: {' '.join(cmd)}")
     
     try:
         subprocess.run(cmd, check=True)
     except subprocess.CalledProcessError as e:
-        print(f"Error processing {map_file}: {e}")
+        print(f"Error processing {map_name}: {e}")
         continue
         
-    print(f"Completed processing {map_file}")
+    print(f"Completed processing {map_name}")
