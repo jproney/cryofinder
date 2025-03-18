@@ -41,6 +41,6 @@ def select_best_maps(corr, strategy, maxk=64):
     elif strategy == "best_best":
         top_indices = corr.max(dim=1)[0].max(dim=-1)[0].topk(maxk, dim=-1)[1]
     elif strategy == "per_proj":
-        top_indices = corr.topk(maxk, dim=-1)[1]
+        top_indices = corr.max(dim=-1)[0].topk(maxk, dim=-1)[1]
 
     return top_indices
