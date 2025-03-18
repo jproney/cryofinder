@@ -19,21 +19,17 @@ def incorporate_postfiltered(results, mean_best_projection=True):
     nmaps = results['corr'].shape[0]
     nproj = results['corr'].shape[1]
     corr_all = results['corr'].clone().view([nmaps,nproj,-1,192])
-    sorted_unique, sort_ids = torch.sort(results['unique_indices'], dim=-1)
+    retreival_indices = results['mbq_indices'] if mean_best_projection else results['bpqp_indices']
 
-    if mean_best_projection:
-        retreival_indices = results['mbq_indices']
-    
-        positions = torch.searchsorted(sorted_unique, retreival_indices)
+    for i in range(nmaps):
+        sorted_unique, sort_ids = torch.sort(results['unique_indices'][i], dim=-1)    
+        positions = torch.searchsorted(sorted_unique, retreival_indices[i])
         mapped_ids = sort_ids[positions]
-        corr_all[:,:, retreival_indices] = results['corr_pf'].view([nmaps,nproj,-1,192])[:,:, mapped_ids]
-    else:
-        for j in range(nproj):
-            retreival_indices = results['bpqp_indices'][:,j]
-    
-            positions = torch.searchsorted(sorted_unique, retreival_indices)
-            mapped_ids = sort_ids[positions]
-            corr_all[:,j, retreival_indices] = results['corr_pf'].view([nmaps,nproj,-1,192])[:,j, mapped_ids]
+
+        if mean_best_projection:
+            corr_all[i,:, retreival_indices] = results['corr_pf'][i].view([nproj,-1,192])[:, mapped_ids]
+        else:
+            corr_all[i, torch.arange(nproj).unsqueeze(1), retreival_indices] = results['corr_pf'][i].view([nmaps,nproj,-1,192])[:,torch.arange(nproj).unsqueeze(1), mapped_ids]
 
     return corr_all
 
