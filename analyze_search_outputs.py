@@ -30,9 +30,9 @@ def incorporate_postfiltered(results, mean_best_projection=True):
             print(corr_all.shape)
             print(retreival_indices[i].shape)
             print(mapped_ids.shape)
-            corr_all[i,:, retreival_indices] = results['corr_pf'][i].view([nproj,-1,192])[:, mapped_ids]
+            corr_all[i,:, retreival_indices[i]] = results['corr_pf'][i].view([nproj,-1,192])[:, mapped_ids]
         else:
-            corr_all[i, torch.arange(nproj).unsqueeze(1), retreival_indices] = results['corr_pf'][i].view([nmaps,nproj,-1,192])[:,torch.arange(nproj).unsqueeze(1), mapped_ids]
+            corr_all[i, torch.arange(nproj).unsqueeze(1), retreival_indices[i]] = results['corr_pf'][i].view([nmaps,nproj,-1,192])[:,torch.arange(nproj).unsqueeze(1), mapped_ids]
 
     return corr_all
 
