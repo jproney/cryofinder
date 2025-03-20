@@ -118,7 +118,7 @@ def optimize_rot_trans(ref_maps, query_maps, query_rotation_matrices, ref_rotati
     rotated_slices_query = generate_rotated_slices(D, query_rotation_matrices)  # R_q x D x D x 3
 
     # Compose ref rotation matrices: R_q x R_r x 3 x 3
-    ref_rotation_matrices = torch.einsum('ijk,klm->ijlm', 
+    ref_rotation_matrices = torch.einsum('ijkl, ijlr->ijkr', 
                                        query_rotation_matrices.unsqueeze(1),  # R_q x 1 x 3 x 3
                                        ref_rotation_offsets.unsqueeze(0))     # 1 x R_r x 3 x 3
 
