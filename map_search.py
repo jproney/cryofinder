@@ -94,78 +94,78 @@ def generate_rotated_slices(D, rotation_matrices):
         rotated_slices[i] = torch.einsum('ij,xyj->xyi', rotation_matrices[i], base_slice)
 
     return rotated_slices
-
 def optimize_rot_trans(ref_maps, query_maps, query_rotation_matrices, ref_rotation_offsets, translation_vectors):
     """
     Optimize rotation and translation for query and reference maps.
 
     Args:
-        query_maps: Tensor of shape N x D x D, query maps
-        ref_maps: Tensor of shape M x D x D, reference maps
+        query_maps: Tensor of shape N x D x D x D, query maps
+        ref_maps: Tensor of shape M x D x D x D, reference maps 
         query_rotation_matrices: Tensor of shape R_q x 3 x 3, rotation matrices for query maps
         ref_rotation_offsets: Tensor of shape R_r x 3 x 3, rotation offsets for reference maps
-        translation_vectors: Tensor of shape T x 2, translation vectors
+        translation_vectors: Tensor of shape T x 3, translation vectors
 
     Returns:
         correlations: Tensor of shape N x M x T x R_r, normalized correlation values
     """
-    N, D, _ = query_maps.shape
-    M, _, _ = ref_maps.shape
-    R_q, _, _ = query_rotation_matrices.shape
-    R_r, _, _ = ref_rotation_offsets.shape
-    T, _ = translation_vectors.shape
+    N, D, _, _ = query_maps.shape  # N x D x D x D
+    M, _, _, _ = ref_maps.shape    # M x D x D x D
+    R_q, _, _ = query_rotation_matrices.shape  # R_q x 3 x 3
+    R_r, _, _ = ref_rotation_offsets.shape     # R_r x 3 x 3
+    T, _ = translation_vectors.shape  # T x 3
 
     # Generate rotated slices for query maps
-    rotated_slices_query = generate_rotated_slices(D, query_rotation_matrices)
+    rotated_slices_query = generate_rotated_slices(D, query_rotation_matrices)  # R_q x D x D x 3
 
-    # Compose ref rotation matrices
-    ref_rotation_matrices = torch.einsum('ijk,klm->ijlm', query_rotation_matrices.unsqueeze(1), ref_rotation_offsets.unsqueeze(0))
+    # Compose ref rotation matrices: R_q x R_r x 3 x 3
+    ref_rotation_matrices = torch.einsum('ijk,klm->ijlm', 
+                                       query_rotation_matrices.unsqueeze(1),  # R_q x 1 x 3 x 3
+                                       ref_rotation_offsets.unsqueeze(0))     # 1 x R_r x 3 x 3
 
-    # Generate rotated slices for reference maps
-    rotated_slices_ref = generate_rotated_slices(D, ref_rotation_matrices.view(-1, 3, 3))
+    # Generate rotated slices for reference maps: (R_q*R_r) x D x D x 3
+    rotated_slices_ref = generate_rotated_slices(D, ref_rotation_matrices.reshape(-1, 3, 3))
 
     # Prepare grid for grid_sample
-    grid_query = rotated_slices_query[:, :, :, :2].view(R_q, D, D, 2).unsqueeze(0).repeat(N, 1, 1, 1, 1).to(query_maps.device)
-    grid_ref = rotated_slices_ref[:, :, :, :2].view(R_q * R_r, D, D, 2).unsqueeze(0).repeat(M, 1, 1, 1, 1).to(ref_maps.device)
+    grid_query = rotated_slices_query[...,:2]  # R_q x D x D x 2
+    grid_query = grid_query.unsqueeze(0).expand(N, -1, -1, -1, -1)  # N x R_q x D x D x 2
+    
+    grid_ref = rotated_slices_ref[...,:2].view(R_q, R_r, D, D, 2)  # R_q x R_r x D x D x 2
+    grid_ref = grid_ref.unsqueeze(0).expand(M, -1, -1, -1, -1, -1)  # M x R_q x R_r x D x D x 2
 
-    # Translate query images
-    query_maps_expanded = query_maps.unsqueeze(1).repeat(1, T, 1, 1).view(N * T, 1, D, D)
-    translation_grid = translation_vectors.view(1, T, 1, 1, 2).repeat(N, 1, D, D, 1).to(query_maps.device)
-    translated_query_images = torch.nn.functional.grid_sample(query_maps_expanded, translation_grid, align_corners=True)
-    translated_query_images = translated_query_images.view(N, T, D, D)
+    # Translate query maps: N x T x D x D x D
+    translated_query_maps = query_maps.unsqueeze(1)  # N x 1 x D x D x D
 
-    # Generate translated and rotated query images
-    translated_query_images_expanded = translated_query_images.unsqueeze(2).repeat(1, 1, R_q, 1, 1).view(N * T * R_q, 1, D, D)
-    grid_query = grid_query.view(1, R_q, D, D, 2).repeat(N * T, 1, 1, 1, 1).view(N * T * R_q, D, D, 2)
-    translated_rotated_query_images = torch.nn.functional.grid_sample(translated_query_images_expanded, grid_query, align_corners=True)
-    translated_rotated_query_images = translated_rotated_query_images.view(N, T, R_q, D, D)
+    # Extract central slices from translated query maps using grid_query
+    translated_query_maps = translated_query_maps.reshape(N*T, 1, D, D, D)
+    grid_query = grid_query.repeat(T, 1, 1, 1, 1)  # (N*T) x R_q x D x D x 2
+    translated_rotated_query = F.grid_sample(translated_query_maps, 
+                                           grid_query.reshape(-1, D, D, 2),
+                                           align_corners=True)  # (N*T) x 1 x D x D
+    translated_rotated_query = translated_rotated_query.view(N, T, R_q, D, D)
 
-    # Generate sliced reference images
-    ref_maps_expanded = ref_maps.unsqueeze(1).repeat(1, R_q * R_r, 1, 1).view(M * R_q * R_r, 1, D, D)
-    grid_ref = grid_ref.view(M * R_q * R_r, D, D, 2)
-    sliced_ref_images = torch.nn.functional.grid_sample(ref_maps_expanded, grid_ref, align_corners=True)
-    sliced_ref_images = sliced_ref_images.view(M, R_q, R_r, D, D)
+    # Extract central slices from reference maps using grid_ref
+    ref_maps = ref_maps.unsqueeze(1).unsqueeze(1)  # M x 1 x 1 x D x D x D
+    sliced_ref = F.grid_sample(ref_maps.reshape(M, 1, D, D, D),
+                              grid_ref.reshape(M*R_q*R_r, D, D, 2),
+                              align_corners=True)  # M x 1 x D x D
+    sliced_ref = sliced_ref.view(M, R_q, R_r, D, D)
 
-    # Correlate sliced reference and query images
-    translated_rotated_query_images = translated_rotated_query_images.unsqueeze(2)  # N x T x 1 x R_q x D x D
-    sliced_ref_images = sliced_ref_images.unsqueeze(0).unsqueeze(0)  # 1 x 1 x M x R_q x R_r x D x D
+    # Compute correlations
+    translated_rotated_query = translated_rotated_query.unsqueeze(1)  # N x 1 x T x R_q x D x D
+    sliced_ref = sliced_ref.unsqueeze(0).unsqueeze(2)  # 1 x M x 1 x R_q x R_r x D x D
 
-    # Multiply and sum over D dimensions
-    product = translated_rotated_query_images * sliced_ref_images
-    sum_product = product.sum(dim=(4, 5))  # N x T x M x R_q x R_r
+    # Normalize inputs
+    query_std = translated_rotated_query.std(dim=(-2,-1), keepdim=True)  # N x 1 x T x R_q x 1 x 1
+    ref_std = sliced_ref.std(dim=(-2,-1), keepdim=True)  # 1 x M x 1 x R_q x R_r x 1 x 1
+    
+    query_norm = (translated_rotated_query - translated_rotated_query.mean(dim=(-2,-1), keepdim=True)) / query_std
+    ref_norm = (sliced_ref - sliced_ref.mean(dim=(-2,-1), keepdim=True)) / ref_std
 
-    # Normalize by standard deviation over D dimensions
-    query_std = translated_rotated_query_images.std(dim=(3, 4), keepdim=True)
-    ref_std = sliced_ref_images.std(dim=(4, 5), keepdim=True)
-    normalized_corr = sum_product / (query_std * ref_std).squeeze()
+    # Compute correlation
+    corr = (query_norm * ref_norm).sum(dim=(-2,-1))  # N x M x T x R_q x R_r
+    corr = corr.mean(dim=3)  # Average over R_q: N x M x T x R_r
 
-    # Mean correlation over R_q dimensions
-    mean_corr = normalized_corr.mean(dim=3)  # N x T x M x R_r
-
-    # Permute axes to N x M x T x R_r
-    correlations = mean_corr.permute(0, 2, 1, 3)
-
-    return correlations
+    return corr
 
 
 
