@@ -86,7 +86,7 @@ def generate_rotated_slices(D, rotation_matrices):
     x = torch.linspace(-D//2, D//2, D)
     y = torch.linspace(-D//2, D//2, D)
     xx, yy = torch.meshgrid(x, y, indexing='ij')
-    base_slice = torch.stack([xx, yy, torch.zeros_like(xx)], dim=-1)  # D x D x 3
+    base_slice = torch.stack([xx, yy, torch.zeros_like(xx)], dim=-1).to(rotation_matrices.device)  # D x D x 3
 
     # Apply rotation matrices to the base slice
     rotated_slices = torch.zeros((N, D, D, 3))
