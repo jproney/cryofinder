@@ -89,11 +89,12 @@ def generate_rotated_slices(D, rotation_matrices):
     base_slice = torch.stack([xx, yy, torch.zeros_like(xx)], dim=-1).to(rotation_matrices.device)  # D x D x 3
 
     # Apply rotation matrices to the base slice
-    rotated_slices = torch.zeros((N, D, D, 3))
+    rotated_slices = torch.zeros((N, D, D, 3), device=rotation_matrices.device)
     for i in range(N):
         rotated_slices[i] = torch.einsum('ij,xyj->xyi', rotation_matrices[i], base_slice)
 
     return rotated_slices
+
 def optimize_rot_trans(ref_maps, query_maps, query_rotation_matrices, ref_rotation_offsets, translation_vectors):
     """
     Optimize rotation and translation for query and reference maps.
