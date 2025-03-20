@@ -27,7 +27,7 @@ def downsample_vol(map, res, target_res=5, target_size=128):
         grid = torch.stack(grid, dim=-1).unsqueeze(0).to(map.device)
         map = F.grid_sample(map.unsqueeze(0).unsqueeze(0), grid, align_corners=True).squeeze()
 
-    pad_width = [( (target_size - s) // 2, (target_size - s + 1) // 2 ) for s in map.shape]
+    pad_width = sum([((target_size - s) // 2, (target_size - s + 1) // 2) for s in map.shape], ())
     map = F.pad(map, pad_width, mode='constant', value=0)
 
     return map
