@@ -127,21 +127,18 @@ def optimize_rot_trans(ref_maps, query_maps, query_rotation_matrices, ref_rotati
     rotated_slices_ref = generate_rotated_slices(D, ref_rotation_matrices.reshape(-1, 3, 3))
 
     # Prepare grid for grid_sample
-    grid_query = rotated_slices_query[...,:2]  # R_q x D x D x 2
-    grid_query = grid_query.unsqueeze(0).expand(N, -1, -1, -1, -1)  # N x R_q x D x D x 2
+    grid_query = rotated_slices_query.unsqueeze(0).expand(N, -1, -1, -1, -1)  # N x R_q x D x D x 3
+
     
-    grid_ref = rotated_slices_ref[...,:2].view(R_q, R_r, D, D, 2)  # R_q x R_r x D x D x 2
-    grid_ref = grid_ref.unsqueeze(0).expand(M, -1, -1, -1, -1, -1)  # M x R_q x R_r x D x D x 2
+    grid_ref = rotated_slices_ref.unsqueeze(0).expand(M, -1, -1, -1, -1)  # M x (R_q*R_r) x D x D x 3
 
     # Translate query maps: N x T x D x D x D
-    translated_query_maps = query_maps.unsqueeze(1)  # N x 1 x D x D x D
+    translated_query_maps = query_maps.unsqueeze(1)
 
     # Extract central slices from translated query maps using grid_query
-    translated_query_maps = translated_query_maps.reshape(N*T, 1, D, D, D)
-    grid_query = grid_query.repeat(T, 1, 1, 1, 1)  # (N*T) x R_q x D x D x 2
     translated_rotated_query = F.grid_sample(translated_query_maps, 
-                                           grid_query.reshape(-1, D, D, 2),
-                                           align_corners=True)  # (N*T) x 1 x D x D
+                                           grid_query,
+                                           align_corners=True)  # N x T x R_q x D x D
     translated_rotated_query = translated_rotated_query.view(N, T, R_q, D, D)
 
     # Extract central slices from reference maps using grid_ref
