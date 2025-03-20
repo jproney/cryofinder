@@ -3,6 +3,34 @@ from cryodrgn.lattice import Lattice
 from cryodrgn.pose_search import rot_2d, interpolate
 from cryodrgn import fft
 import pickle
+import torch.nn.functional as F
+
+
+def downsample_vol(map, res, target_res=5, target_size=128):
+    """
+    Downsample a DxDxD image to a target resolution and pad to target size.
+
+    Args:
+        map: Tensor of shape D x D x D, input volume
+        res: Current resolution of the input volume in A/pix
+        target_res: Target resolution in A/pix (default is 5 A/pix)
+        target_size: Target size for padding (default is 128)
+
+    Returns:
+        Tensor of shape target_size x target_size x target_size, downsampled and padded volume
+    """
+    if res < target_res:
+        scale_factor = res / target_res
+        D = map.shape[0]
+        new_D = int(D * scale_factor)
+        grid = torch.meshgrid([torch.linspace(-1, 1, new_D) for _ in range(3)], indexing='ij')
+        grid = torch.stack(grid, dim=-1).unsqueeze(0).to(map.device)
+        map = F.grid_sample(map.unsqueeze(0).unsqueeze(0), grid, align_corners=True).squeeze()
+
+    pad_width = [( (target_size - s) // 2, (target_size - s + 1) // 2 ) for s in map.shape]
+    map = F.pad(map, pad_width, mode='constant', value=0)
+
+    return map
 
 def translate_maps(maps, trans, input_hartley=True, output_hartley=True):
     """
