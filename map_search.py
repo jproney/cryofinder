@@ -149,7 +149,7 @@ def optimize_rot_trans(ref_maps, query_maps, query_rotation_matrices, ref_rotati
     sliced_ref = sliced_ref.view(M, R_q, R_r, D, D)
 
     # Compute correlations
-    translated_rotated_query = translated_rotated_query.unsqueeze(1)  # N x 1 x T x R_q x D x D
+    translated_rotated_query = translated_rotated_query.unsqueeze(1).unsqueeze(4)  # N x 1 x T x R_q x 1 x D x D
     sliced_ref = sliced_ref.unsqueeze(0).unsqueeze(2)  # 1 x M x 1 x R_q x R_r x D x D
 
     # Normalize inputs
