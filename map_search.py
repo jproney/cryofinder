@@ -160,9 +160,7 @@ def optimize_rot_trans(ref_maps, query_maps, query_rotation_matrices, ref_rotati
     ref_norm = (sliced_ref - sliced_ref.mean(dim=(-2,-1), keepdim=True)) / (ref_std + 1e-7)
 
     # Compute correlation
-    corr = (query_norm * ref_norm).sum(dim=(-2,-1))  # N x M x T x R_q x R_r
-    corr = corr.mean(dim=3)  # Average over R_q: N x M x T x R_r
-
+    corr = (query_norm * ref_norm).mean(dim=(3,-2,-1))  # N x M x T x R_q x R_r
     return corr
 
 
