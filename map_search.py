@@ -161,7 +161,8 @@ def optimize_rot_trans(ref_maps, query_maps, query_rotation_matrices, ref_rotati
 
     # Compute correlation
     corr = (query_norm * ref_norm).mean(dim=(3,-2,-1))  # N x M x T x R_q x R_r
-    return corr
+    bestidx = corr.argmax(dim=-1)
+    return corr, sliced_ref[torch.arange(M).view([-1,1,1]), torch.arange(R_q).view([1,-1,1]), bestidx]
 
 
 
