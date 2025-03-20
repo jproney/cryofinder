@@ -142,10 +142,10 @@ def optimize_rot_trans(ref_maps, query_maps, query_rotation_matrices, ref_rotati
     translated_rotated_query = translated_rotated_query.view(N, T, R_q, D, D)
 
     # Extract central slices from reference maps using grid_ref
-    ref_maps = ref_maps.unsqueeze(1).unsqueeze(1)  # M x 1 x 1 x D x D x D
-    sliced_ref = F.grid_sample(ref_maps.reshape(M, 1, D, D, D),
-                              grid_ref.reshape(M*R_q*R_r, D, D, 2),
-                              align_corners=True)  # M x 1 x D x D
+    ref_maps = ref_maps.unsqueeze(1)  # M x 1 x D x D x D
+    sliced_ref = F.grid_sample(ref_maps,
+                              grid_ref,
+                              align_corners=True)  # M x 1 x R_q*R_r x D x D
     sliced_ref = sliced_ref.view(M, R_q, R_r, D, D)
 
     # Compute correlations
