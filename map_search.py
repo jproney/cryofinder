@@ -149,7 +149,7 @@ def optimize_rot_trans(ref_maps, query_maps, query_rotation_matrices, ref_rotati
     grid_ref = rotated_slices_ref.unsqueeze(0).expand(M, -1, -1, -1, -1)  # M x (R_q*R_r) x D x D x 3
 
     # Translate query maps: N x T x D x D x D
-    if translation_vectors is not None:
+    if translation_vectors is None:
         translated_query_maps = query_maps.unsqueeze(1)
     else:
         translated_query_maps = translate_ht3(query_maps, translation_vectors)
