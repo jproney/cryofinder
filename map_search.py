@@ -55,7 +55,7 @@ def translate_ht3(img, t, coords=None):
         coords = torch.stack([xx, yy, zz], dim=-1).reshape(-1, 3)
 
     # H'(k) = cos(2*pi*k*t0)H(k) + sin(2*pi*k*t0)H(-k)
-    img = img.unsqueeze(1)  # Bx1xN
+    img = img.view((img.shape[0], 1, -1)) # Bx1xN
     t = t.unsqueeze(-1)  # BxTx3x1 to be able to do bmm
     tfilt = coords @ t * 2 * np.pi  # BxTxNx1
     tfilt = tfilt.squeeze(-1)  # BxTxN
@@ -129,7 +129,7 @@ def optimize_rot_trans(ref_maps, query_maps, query_rotation_matrices, ref_rotati
     M, _, _, _ = ref_maps.shape    # M x D x D x D
     R_q, _, _ = query_rotation_matrices.shape  # R_q x 3 x 3
     R_r, _, _ = ref_rotation_offsets.shape     # R_r x 3 x 3
-    T, _ = translation_vectors.shape  # T x 3
+    T = translation_vectors.shape[0] if translation_vectors is not None else 1 # T x 3 or None
 
     # Generate rotated slices for query maps
     rotated_slices_query = generate_rotated_slices(D, query_rotation_matrices)  # R_q x D x D x 3
@@ -149,7 +149,10 @@ def optimize_rot_trans(ref_maps, query_maps, query_rotation_matrices, ref_rotati
     grid_ref = rotated_slices_ref.unsqueeze(0).expand(M, -1, -1, -1, -1)  # M x (R_q*R_r) x D x D x 3
 
     # Translate query maps: N x T x D x D x D
-    translated_query_maps = query_maps.unsqueeze(1)
+    if translation_vectors is not None:
+        translated_query_maps = query_maps.unsqueeze(1)
+    else:
+        translated_query_maps = translate_ht3(query_maps, translation_vectors)
 
     # Extract central slices from translated query maps using grid_query
     translated_rotated_query = F.grid_sample(translated_query_maps, 
