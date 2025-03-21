@@ -64,6 +64,29 @@ def translate_ht3(img, t, coords=None):
 
     return c * img + s * img[:, :, torch.arange(len(coords) - 1, -1, -1)]
 
+
+def symmetrize_ht3(ht: torch.Tensor) -> torch.Tensor:
+    if ht.ndim == 3:
+        ht = ht[np.newaxis, ...]
+    assert ht.ndim == 4
+    n = ht.shape[0]
+
+    D = ht.shape[-1]
+    sym_ht = torch.empty((n, D + 1, D + 1, D + 1), dtype=ht.dtype, device=ht.device)
+    sym_ht[:, 0:-1, 0:-1, 0:-1] = ht
+
+    assert D % 2 == 0
+    sym_ht[:, -1, -1, :] = sym_ht[:, 0, 0, :] 
+    sym_ht[:, -1,  :,-1] = sym_ht[:, 0, :, 0] 
+    sym_ht[:,  :, -1,-1] = sym_ht[:, :, 0, 0] 
+    
+    sym_ht[:, -1, -1,-1] = sym_ht[:, 0, 0, 0] 
+
+    if n == 1:
+        sym_ht = sym_ht[0, ...]
+
+    return sym_ht
+
 def generate_rotated_slices(D, rotation_matrices):
     """
     Generate a N x D x D x 3 slice array, where each slice is a D x D x 3 meshgrid of 3D coordinates

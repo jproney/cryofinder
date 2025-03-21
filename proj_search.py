@@ -4,6 +4,7 @@ from cryodrgn.pose_search import rot_2d, interpolate
 from cryodrgn import fft
 import pickle
 
+
 def translate_images(images, trans, lat=None, mask=None, input_hartley=True, output_hartley=True):
     """
     Translate images in Hartley/real space
