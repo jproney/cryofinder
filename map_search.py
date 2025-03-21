@@ -155,6 +155,8 @@ def optimize_rot_trans(ref_maps, query_maps, query_rotation_matrices, ref_rotati
         translated_query_maps = translate_ht3(query_maps, translation_vectors)
 
     # Extract central slices from translated query maps using grid_query
+    print(translated_query_maps.shape)
+    print(grid_query.shape)
     translated_rotated_query = F.grid_sample(translated_query_maps, 
                                            grid_query,
                                            align_corners=True)  # N x T x R_q x D x D
