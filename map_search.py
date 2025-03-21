@@ -1,8 +1,5 @@
 import torch
-from cryodrgn.lattice import Lattice
-from cryodrgn.pose_search import rot_2d, interpolate
-from cryodrgn import fft
-import pickle
+import numpy as np
 import torch.nn.functional as F
 
 
@@ -32,42 +29,40 @@ def downsample_vol(map, res, target_res=5, target_size=128):
 
     return map
 
-def translate_maps(maps, trans, input_hartley=True, output_hartley=True):
-    """
-    Translate 3D maps in Hartley/real space by phase shifting
 
-    Args:
-        maps: Tensor of shape N x D x D x D, maps in real or Hartley space
-        trans: Tensor of translations to apply, T x 3 or N x T x 3
-        input_hartley: Bool indicating if input maps are in Hartley space
-        output_hartley: Bool indicating if output should be in Hartley space
+def translate_ht3(img, t, coords=None):
+    """
+    Translate an image by phase shifting its Hartley transform
+
+    Inputs:
+        img: HT of image (B x D x D x D)
+        t: shift in pixels (B x T x 3)
+        coords: N x 3
 
     Returns:
-        Tensor of translated maps with shape N x T x D x D x D, where T is number of translations.
-        Output is in Hartley or real space based on output_hartley parameter.
+        Shifted images (B x T x img_dims)
+
+    img must be 1D unraveled image, symmetric around DC component
     """
 
-    if not input_hartley:
-        ht = fft.ht3_center(maps)
-        ht = fft.symmetrize_ht(ht)
-    else:
-        ht = maps
+    B, D, _, _ = img.shape
+    if coords is None:
+        # Create 3D meshgrid of size D
+        x = torch.linspace(-0.5, 0.5, D, device=img.device)
+        y = torch.linspace(-0.5, 0.5, D, device=img.device)
+        z = torch.linspace(-0.5, 0.5, D, device=img.device)
+        xx, yy, zz = torch.meshgrid(x, y, z, indexing='ij')
+        coords = torch.stack([xx, yy, zz], dim=-1).reshape(-1, 3)
 
-    if len(trans.shape) == 2:
-        trans = trans.unsqueeze(0)
+    # H'(k) = cos(2*pi*k*t0)H(k) + sin(2*pi*k*t0)H(-k)
+    img = img.unsqueeze(1)  # Bx1xN
+    t = t.unsqueeze(-1)  # BxTx3x1 to be able to do bmm
+    tfilt = coords @ t * 2 * np.pi  # BxTxNx1
+    tfilt = tfilt.squeeze(-1)  # BxTxN
+    c = torch.cos(tfilt)  # BxTxN
+    s = torch.sin(tfilt)  # BxTxN
 
-    # Apply phase shift for translation in Hartley space
-    grid = torch.fft.fftfreq(ht.shape[1], d=1/ht.shape[1], device=ht.device)
-    grid = torch.stack(torch.meshgrid(grid, grid, grid, indexing='ij'), dim=-1)
-    phase_shift = torch.exp(-2j * np.pi * (grid.unsqueeze(0).unsqueeze(0) * trans.unsqueeze(-2).unsqueeze(-2).unsqueeze(-2)).sum(dim=-1))
-    translated_ht = ht.unsqueeze(1) * phase_shift
-
-    if not output_hartley:
-        translated_maps = fft.iht3_center(translated_ht)
-    else:
-        translated_maps = translated_ht
-
-    return translated_maps
+    return c * img + s * img[:, :, torch.arange(len(coords) - 1, -1, -1)]
 
 def generate_rotated_slices(D, rotation_matrices):
     """
