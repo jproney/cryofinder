@@ -1,6 +1,7 @@
 import torch
 import numpy as np
 import torch.nn.functional as F
+from cryodrgn.shift_grid import grid_1d
 
 
 def downsample_vol(map, res, target_res=5, target_size=128):
@@ -86,6 +87,17 @@ def symmetrize_ht3(ht: torch.Tensor) -> torch.Tensor:
 
     return sym_ht
 
+def grid_3d(
+    resol: int, extent: int, ngrid: int, xshift: int = 0, yshift: int = 0, zshift: int = 0
+) -> np.ndarray:
+    x = grid_1d(resol, extent, ngrid, shift=xshift)
+    y = grid_1d(resol, extent, ngrid, shift=yshift)
+    z = grid_1d(resol, extent, ngrid, shift=zshift)
+
+    # convention: x is fast dim, y is slow dim
+    grid = np.stack(np.meshgrid(x, y, z), -1)
+    return grid.reshape(-1, 3)
+
 def generate_rotated_slices(D, rotation_matrices):
     """
     Generate a N x D x D x 3 slice array, where each slice is a D x D x 3 meshgrid of 3D coordinates
@@ -156,8 +168,6 @@ def optimize_rot_trans(ref_maps, query_maps, query_rotation_matrices, ref_rotati
         translated_query_maps = translate_ht3(query_maps, translation_vectors)
 
     # Extract central slices from translated query maps using grid_query
-    print(translated_query_maps.shape)
-    print(grid_query.shape)
     translated_rotated_query = F.grid_sample(translated_query_maps, 
                                            grid_query,
                                            align_corners=True)  # N x T x R_q x D x D
