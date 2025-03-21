@@ -79,11 +79,9 @@ def symmetrize_ht3(ht: torch.Tensor) -> torch.Tensor:
     sym_ht[:, -1, -1, :] = sym_ht[:, 0, 0, :] 
     sym_ht[:, -1,  :,-1] = sym_ht[:, 0, :, 0] 
     sym_ht[:,  :, -1,-1] = sym_ht[:, :, 0, 0] 
-    
+
     sym_ht[:, -1, -1,-1] = sym_ht[:, 0, 0, 0] 
 
-    if n == 1:
-        sym_ht = sym_ht[0, ...]
 
     return sym_ht
 
