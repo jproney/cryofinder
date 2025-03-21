@@ -186,7 +186,7 @@ def optimize_rot_trans(ref_maps, query_maps, query_rotation_matrices, ref_rotati
     br_corr, bestrot = corr.max(dim=-1)
     _, besttrans = torch.max(br_corr, dim=-1)
 
-    return corr, translated_rotated_query.view(N, T, R_q, D, D)[:, besttrans], sliced_ref.view(M, R_q, R_r, D, D)[torch.arange(M).view([-1,1,1]), torch.arange(R_q).view([1,-1,1]), bestrot]
+    return corr, translated_rotated_query.view(N, T, R_q, D, D)[:, besttrans], sliced_ref.view(M, R_q, R_r, D, D)[torch.arange(M).view([-1,1,1]), torch.arange(R_q).view([1,-1,1]), bestrot[besttrans]]
 
 
 
