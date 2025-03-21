@@ -46,6 +46,7 @@ def translate_ht3(img, t, coords=None):
     """
 
     B, D, _, _ = img.shape
+    T, _ = t.shape
     if coords is None:
         # Create 3D meshgrid of size D
         x = torch.linspace(-0.5, 0.5, D, device=img.device)
@@ -62,7 +63,7 @@ def translate_ht3(img, t, coords=None):
     c = torch.cos(tfilt)  # BxTxN
     s = torch.sin(tfilt)  # BxTxN
 
-    return c * img + s * img[:, :, torch.arange(len(coords) - 1, -1, -1)]
+    return (c * img + s * img[:, :, torch.arange(len(coords) - 1, -1, -1)]).view((B,T,D,D,D))
 
 
 def symmetrize_ht3(ht: torch.Tensor) -> torch.Tensor:
