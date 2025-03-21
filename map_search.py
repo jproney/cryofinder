@@ -149,8 +149,9 @@ def optimize_rot_trans(ref_maps, query_maps, query_rotation_matrices, ref_rotati
 
     # Compose ref rotation matrices: R_q x R_r x 3 x 3
     ref_rotation_matrices = torch.einsum('ijkl, ijlr->ijkr', 
-                                       query_rotation_matrices.unsqueeze(1),  # R_q x 1 x 3 x 3
-                                       ref_rotation_offsets.unsqueeze(0))     # 1 x R_r x 3 x 3
+                                       ref_rotation_offsets.unsqueeze(0),
+                                       query_rotation_matrices.unsqueeze(1)  # R_q x 1 x 3 x 3
+                                       )     # 1 x R_r x 3 x 3
 
     # Generate rotated slices for reference maps: (R_q*R_r) x D x D x 3
     rotated_slices_ref = generate_rotated_slices(D, ref_rotation_matrices.reshape(-1, 3, 3))
@@ -209,8 +210,8 @@ def optimize_theta_trans_chunked(ref_maps, query_maps, trans, rot, chunk_size=10
 
     for i in range(0, M, chunk_size):
         ref_chunk = ref_maps[i:i + chunk_size]
-        correlations_chunk = optimize_rot_trans(ref_chunk, query_maps, trans, rot)
-        correlations_list.append(correlations_chunk)
+        correlations_chunk, _, _ = optimize_rot_trans(ref_chunk, query_maps, trans, rot)
+        correlations_list.append(correlations_chunk.cpu())
 
     correlations = torch.cat(correlations_list, dim=1)
     return correlations
