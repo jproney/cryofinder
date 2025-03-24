@@ -1,5 +1,6 @@
 import pandas as pd
-import mrc, torch, os
+from cryodrgn import mrcfile as mrc
+import torch, os
 from map_search import downsample_vol
 
 all_vols = []
