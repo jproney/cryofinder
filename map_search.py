@@ -238,7 +238,7 @@ def optimize_rot_trans_chunked(ref_maps, query_maps, query_rotation_matrices, re
         query_maps = symmetrize_ht3(torch.stack([htn_center(q) for q in query_maps]))
 
     # Pre-allocate a chunk of memory
-    chunk_refs = torch.empty(chunk_size, D, D, D, device=device)
+    chunk_refs = torch.empty(chunk_size, D+1, D+1, D+1, device=device) if hartley_corr else torch.empty(chunk_size, D, D, D, device=device)
     
     # Process reference maps in chunks
     for cf in chunk_files:
