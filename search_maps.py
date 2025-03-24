@@ -11,7 +11,7 @@ from cryodrgn.source import ImageSource
 import os
 import torch
 from proj_search import optimize_theta_trans_chunked
-from map_search import optimize_rot_trans_chunked, grid_3d
+from map_search import optimize_rot_trans_chunked, grid_3d, downsample_vol
 from cryodrgn import shift_grid, so3_grid, lie_tools
 
 # Set up argument parser
@@ -73,13 +73,14 @@ scaled_pix = torch.clamp(torch.ceil(torch.tensor(dat["raw_box_size_pixel"] * dat
 
 # Extract IDs and paths from the CSV
 query_imglist = []
-for i, e in enumerate(dat['map_name']):
+for i, (e, apix) in enumerate(zip(dat['map_name'], dat['raw_pixel_size_angstrom'])):
     map_path = os.path.join(args.map_dir, f'{e}.map')
     mrcs_path = os.path.join(args.map_dir, f'{e}.mrcs')
     mrc_path = os.path.join(args.map_dir, f'{e}.mrc')
 
     if os.path.exists(map_path) and args.search3d:
-        query_imglist.append(mrc.parse_mrc(map_path))
+        vol = downsample_vol(torch.tensor(mrc.parse_mrc(map_path)), apix, target_res=5).cuda()
+        query_imglist.append(vol)
     if os.path.exists(mrcs_path):
         query_imglist.append(ImageSource.from_file(mrcs_path).images())
     elif os.path.exists(mrc_path):
