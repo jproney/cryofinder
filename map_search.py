@@ -203,15 +203,62 @@ def optimize_rot_trans(ref_maps, query_maps, query_rotation_matrices, ref_rotati
 
 
 
-def optimize_theta_trans_chunked(ref_maps, query_maps, trans, rot, chunk_size=100):
+def optimize_rot_trans_chunked(ref_maps, query_maps, query_rotation_matrices, ref_rotation_offsets, translation_vectors, chunk_size=100):
+    """
+    Memory-efficient optimization of rotation and translation for query and reference maps.
+
+    Args:
+        ref_maps: Tensor of shape M x D x D x D or list of paths to pickle files containing reference maps
+        query_maps: Tensor of shape N x D x D x D, query maps 
+        query_rotation_matrices: Tensor of shape R_q x 3 x 3, rotation matrices for query maps
+        ref_rotation_offsets: Tensor of shape R_r x 3 x 3, rotation offsets for reference maps
+        translation_vectors: Tensor of shape T x 3, translation vectors
+        chunk_size: Number of reference maps to process at once
+
+    Returns:
+        correlations: Tensor of shape N x M x T x R_r, normalized correlation values
+    """
     N = query_maps.shape[0]
-    M = ref_maps.shape[0]
+    D = query_maps.shape[1]
+    device = query_maps.device
+    
+    # Handle both tensor and list of paths
+    if isinstance(ref_maps, list):
+        chunk_files = ref_maps
+    else:
+        M = ref_maps.shape[0]
+        chunk_files = [None]
+    
     correlations_list = []
+    
+    # Pre-allocate a chunk of memory
+    chunk_refs = torch.empty(chunk_size, D, D, D, device=device)
+    
+    # Process reference maps in chunks
+    for cf in chunk_files:
+        if cf is not None:
+            data = pickle.load(open(cf, 'rb'))
+            ref_maps = data['maps']
+            M = ref_maps.shape[0]
+            
+        for chunk_start in range(0, M, chunk_size):
+            chunk_end = min(chunk_start + chunk_size, M)
+            chunk_size_actual = chunk_end - chunk_start
+            
+            # Load chunk of reference maps to gpu
+            chunk_refs[:chunk_size_actual].copy_(ref_maps[chunk_start:chunk_end])
 
-    for i in range(0, M, chunk_size):
-        ref_chunk = ref_maps[i:i + chunk_size]
-        correlations_chunk, _, _ = optimize_rot_trans(ref_chunk, query_maps, trans, rot)
-        correlations_list.append(correlations_chunk.cpu())
-
+            # Process chunk
+            chunk_correlations, _, _ = optimize_rot_trans(
+                chunk_refs[:chunk_size_actual], 
+                query_maps,
+                query_rotation_matrices,
+                ref_rotation_offsets,
+                translation_vectors
+            )
+            
+            correlations_list.append(chunk_correlations.cpu())
+            
+    # Combine results from all chunks
     correlations = torch.cat(correlations_list, dim=1)
     return correlations
