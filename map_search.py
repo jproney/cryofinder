@@ -252,10 +252,10 @@ def optimize_rot_trans_chunked(ref_maps, query_maps, query_rotation_matrices, re
             chunk_size_actual = chunk_end - chunk_start
             
             # Load chunk of reference maps to gpu
-            chunk_refs[:chunk_size_actual, :D, :D, :D].copy_(ref_maps[chunk_start:chunk_end])
-
             if hartley_corr:
-                chunk_refs[:chunk_size_actual] = symmetrize_ht3(torch.stack([htn_center(r) for r in chunk_refs[:chunk_size_actual, :D, :D, :D]]))
+                chunk_refs[:chunk_size_actual, :D, :D, :D].copy_(symmetrize_ht3(torch.stack([htn_center(r) for r in ref_maps[chunk_start:chunk_end]])))
+            else:
+                chunk_refs[:chunk_size_actual].copy_ (ref_maps[chunk_start:chunk_end])
 
             # Process chunk
             chunk_correlations, _, _ = optimize_rot_trans(
