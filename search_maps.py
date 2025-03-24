@@ -144,8 +144,8 @@ for query_batch, e, m in zip(query_imgs_raw, dat['map_name'], circle_masks):
     start_time = time.time()
     with torch.no_grad():
         if args.search3d:
-            corr = optimize_rot_trans_chunked(vols - vols.mean(dim=(-1,-2,-3)), 
-                                              query_batch - query_batch.mean(dim=(-1,-2,-3)),
+            corr = optimize_rot_trans_chunked(vols - vols.mean(dim=(-1,-2,-3), keepdim=True), 
+                                              query_batch - query_batch.mean(dim=(-1,-2,-3), keepdim=True),
                                               rots1,
                                               rots2,
                                               trans,
