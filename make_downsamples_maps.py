@@ -8,7 +8,7 @@ all_ids = []
 dat = pd.read_csv("../siren_maps.csv")
 
 for i,(m, apix) in enumerate(zip(dat['map_name'], dat['raw_pixel_size_angstrom'])):
-    f = "raw_maps_07072023/" + m
+    f = "../raw_maps_07072023/" + m
     if os.path.exists(f):
         vol, _ = mrc.parse_mrc(f)
         vol = downsample_vol(torch.tensor(vol), apix, target_res=5)
