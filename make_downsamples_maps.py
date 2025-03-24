@@ -14,7 +14,7 @@ for i,(m, apix) in enumerate(zip(dat['map_name'], dat['raw_pixel_size_angstrom']
         vol = downsample_vol(torch.tensor(vol), apix, target_res=5)
         all_vols.append(vol)
         all_ids.append(int(m.split("_")[-1][:-4]))
-        if i % 10 == 10:
+        if i % 10 == 0:
             print(i)
 
 all_vols = torch.cat(all_vols)
