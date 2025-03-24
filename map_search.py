@@ -2,6 +2,9 @@ import torch
 import numpy as np
 import torch.nn.functional as F
 from cryodrgn.shift_grid import grid_1d
+import pickle
+from cryodrgn.fft import htn_center
+
 
 
 def downsample_vol(map, res, target_res=5, target_size=128):
@@ -203,7 +206,7 @@ def optimize_rot_trans(ref_maps, query_maps, query_rotation_matrices, ref_rotati
 
 
 
-def optimize_rot_trans_chunked(ref_maps, query_maps, query_rotation_matrices, ref_rotation_offsets, translation_vectors, chunk_size=100):
+def optimize_rot_trans_chunked(ref_maps, query_maps, query_rotation_matrices, ref_rotation_offsets, translation_vectors, chunk_size=100, hartley_corr=True):
     """
     Memory-efficient optimization of rotation and translation for query and reference maps.
 
@@ -231,6 +234,9 @@ def optimize_rot_trans_chunked(ref_maps, query_maps, query_rotation_matrices, re
     
     correlations_list = []
     
+    if hartley_corr:
+        query_maps = symmetrize_ht3(torch.stack([htn_center(q) for q in query_maps]))
+
     # Pre-allocate a chunk of memory
     chunk_refs = torch.empty(chunk_size, D, D, D, device=device)
     
@@ -247,6 +253,9 @@ def optimize_rot_trans_chunked(ref_maps, query_maps, query_rotation_matrices, re
             
             # Load chunk of reference maps to gpu
             chunk_refs[:chunk_size_actual].copy_(ref_maps[chunk_start:chunk_end])
+
+            if hartley_corr:
+                chunk_refs[:chunk_size_actual] = symmetrize_ht3(torch.stack([htn_center(r) for r in chunk_refs[:chunk_size_actual]]))
 
             # Process chunk
             chunk_correlations, _, _ = optimize_rot_trans(

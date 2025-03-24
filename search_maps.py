@@ -147,7 +147,8 @@ for query_batch, e, m in zip(query_imgs_raw, dat['map_name'], circle_masks):
                                               query_batch - query_batch.mean(dim=(-1,-2,-3)),
                                               rots1,
                                               rots2,
-                                              trans)
+                                              trans,
+                                              hartley_corr=not args.realspace_corr)
             best_corr = None
             best_indices = None
         else:
