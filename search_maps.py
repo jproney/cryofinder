@@ -79,7 +79,8 @@ for i, (e, apix) in enumerate(zip(dat['map_name'], dat['raw_pixel_size_angstrom'
     mrc_path = os.path.join(args.map_dir, f'{e}.mrc')
 
     if os.path.exists(map_path) and args.search3d:
-        vol = downsample_vol(torch.tensor(mrc.parse_mrc(map_path)), apix, target_res=5).cuda()
+        vol, _  = mrc.parse_mrc(map_path)
+        vol = downsample_vol(torch.tensor(vol), apix, target_res=5).cuda()
         query_imglist.append(vol)
     if os.path.exists(mrcs_path):
         query_imglist.append(ImageSource.from_file(mrcs_path).images())
