@@ -17,5 +17,5 @@ for i,(m, apix) in enumerate(zip(dat['map_name'], dat['raw_pixel_size_angstrom']
         if i % 10 == 0:
             print(i)
 
-all_vols = torch.cat(all_vols)
+all_vols = torch.stack(all_vols, dim=0)
 torch.save({"vols" : all_vols, "ids" : torch.tensor(all_ids)},  "../siren_vols.pt")
