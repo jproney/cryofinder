@@ -40,7 +40,7 @@ parser.add_argument('--postfilter_chunk_size', type=int, default=30, help="Chunk
 
 args = parser.parse_args()
 
-if args.search3d:
+if not args.search3d:
     dat = torch.load("../train_projections.pt")
     ids = dat['ids']
     images = dat['images']
