@@ -133,7 +133,7 @@ for query_batch, e, m in zip(query_imgs_raw, dat['map_name'], circle_masks):
         f'{"_maskqueries" if args.mask_queries else ""}')  if not args.search3d else '' +
         (f'_postfilternum{args.postfilter_num}'
         f'_transpf{args.translation_extent_pf}_numtranspf{args.num_translations_pf}'
-        f'_rotpf{args.rotation_resol_pf}.pt') if args.postfitler else '.pt'
+        f'_rotpf{args.rotation_resol_pf}.pt') if args.postfilter else '.pt'
     )
 
     if os.path.exists(output_file_name) and not args.clobber:
