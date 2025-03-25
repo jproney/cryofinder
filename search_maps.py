@@ -131,10 +131,12 @@ for query_batch, e, m in zip(query_imgs_raw, dat['map_name'], circle_masks):
         f'{"_realspace" if args.realspace_corr else "_hartley"}' + (
         f'{"_fastrotate" if args.fast_rotate else "_slowrotate"}'
         f'{"_maskqueries" if args.mask_queries else ""}')  if not args.search3d else '' +
-        (f'_postfilternum{args.postfilter_num}'
+        ((f'_postfilternum{args.postfilter_num}'
         f'_transpf{args.translation_extent_pf}_numtranspf{args.num_translations_pf}'
-        f'_rotpf{args.rotation_resol_pf}.pt') if args.postfilter else '.pt'
+        f'_rotpf{args.rotation_resol_pf}.pt') if args.postfilter else '.pt')
     )
+
+    print(output_file_name)
 
     if os.path.exists(output_file_name) and not args.clobber:
         continue
@@ -168,11 +170,11 @@ for query_batch, e, m in zip(query_imgs_raw, dat['map_name'], circle_masks):
         if args.postfilter:
             corr = corr.cpu()
             if args.search3d:
-                unique_indices = corr.amax(dim=(-1,-2)).topk(args.postfilter_num, dim=-1)[1]
+                unique_indices = corr.amax(dim=(-1,-2)).topk(args.postfilter_num, dim=-1)[1][0] # elimintate unnded extra dimension 
 
                 trans_pf = torch.tensor(grid_3d(0, args.translation_extent_pf, args.num_translations_pf)).cuda()
-                theta, phi = so3_grid.grid_s2(rotation_resol)
-                psi = so3_grid.grid_s1(rotation_resol)
+                theta, phi = so3_grid.grid_s2(args.rotation_resol_pf)
+                psi = so3_grid.grid_s1(args.rotation_resol_pf)
                 quats2 = so3_grid.hopf_to_quat(
                     np.repeat(theta, len(psi)),
                     np.repeat(phi, len(psi)),
