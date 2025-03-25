@@ -258,8 +258,7 @@ def optimize_rot_trans_chunked(ref_maps, query_maps, query_rotation_matrices, re
                 chunk_refs[:chunk_size_actual].copy_(ref_maps[chunk_start:chunk_end])
 
             with torch.no_grad(): # this shouldn't do anything by whatever
-                print(query_maps.shape)
-                print(chunk_refs[:chunk_size_actual].shape)
+                print(chunk_start)
 
                 # Process chunk
                 chunk_correlations, _, _ = optimize_rot_trans(
