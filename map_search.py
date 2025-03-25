@@ -266,7 +266,9 @@ def optimize_rot_trans_chunked(ref_maps, query_maps, query_rotation_matrices, re
                 translation_vectors
             )
             
-            correlations_list.append(chunk_correlations.cpu())
+            chunk_correlations = chunk_correlations.cpu()
+
+            correlations_list.append(chunk_correlations)
             
     # Combine results from all chunks
     correlations = torch.cat(correlations_list, dim=1)
