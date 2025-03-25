@@ -201,8 +201,8 @@ def optimize_rot_trans(ref_maps, query_maps, query_rotation_matrices, ref_rotati
     corr = (((translated_rotated_query - query_mean) * (sliced_ref - ref_mean)).sum(dim=(3,-2,-1), keepdim=True) / query_std / ref_std).mean(dim=(3,-2,-1)) # N x M x T x R_r
     br_corr, bestrots = corr.max(dim=-1)
     _, besttrans = torch.max(br_corr, dim=-1)
-    bestrot = bestrots.gather(-1, besttrans.unsqueeze(-1))
-    return corr, translated_rotated_query.view(N, T, R_q, D, D)[torch.arange(N).unsqueeze(1), besttrans], sliced_ref.view(M, R_q, R_r, D, D)[torch.arange(M).view([-1,1,1]), torch.arange(R_q).view([1,-1,1]), bestrot]
+    bestrot = bestrots.gather(-1, besttrans.unsqueeze(-1)) #N x M 
+    return corr, translated_rotated_query.view(N, T, R_q, D, D)[torch.arange(N).unsqueeze(1), besttrans], sliced_ref.view(M, R_q, R_r, D, D)[torch.arange(M).view([1,-1,1]), torch.arange(R_q).view([1,1,-1]), bestrot]
 
 
 
