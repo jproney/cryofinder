@@ -149,7 +149,8 @@ for query_batch, e, m in zip(query_imgs_raw, dat['map_name'], circle_masks):
                                               rots1,
                                               rots2,
                                               trans,
-                                              hartley_corr=not args.realspace_corr)
+                                              hartley_corr=not args.realspace_corr,
+                                              chunk_size=chunk_size)
             best_corr = None
             best_indices = None
         else:
