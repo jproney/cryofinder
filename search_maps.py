@@ -130,10 +130,10 @@ for query_batch, e, m in zip(query_imgs_raw, dat['map_name'], circle_masks):
         f'_rot{rotation_resol}_trans{num_translations}_extent{translation_extent}'
         f'{"_realspace" if args.realspace_corr else "_hartley"}' + (
         f'{"_fastrotate" if args.fast_rotate else "_slowrotate"}'
-        f'{"_maskqueries" if args.mask_queries else ""}'
-        f'_postfilternum{args.postfilter_num}'
+        f'{"_maskqueries" if args.mask_queries else ""}')  if not args.search3d else '' +
+        (f'_postfilternum{args.postfilter_num}'
         f'_transpf{args.translation_extent_pf}_numtranspf{args.num_translations_pf}'
-        f'_rotpf{args.rotation_resol_pf}.pt' if not args.search3d else '.pt')
+        f'_rotpf{args.rotation_resol_pf}.pt') if args.postfitler else '.pt'
     )
 
     if os.path.exists(output_file_name) and not args.clobber:
