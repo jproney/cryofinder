@@ -133,7 +133,7 @@ for query_batch, e, m in zip(query_imgs_raw, dat['map_name'], circle_masks):
         f'{"_maskqueries" if args.mask_queries else ""}'
         f'_postfilternum{args.postfilter_num}'
         f'_transpf{args.translation_extent_pf}_numtranspf{args.num_translations_pf}'
-        f'_rotpf{args.rotation_resol_pf}.pt') if not args.search3d else '.pt'
+        f'_rotpf{args.rotation_resol_pf}.pt' if not args.search3d else '.pt')
     )
 
     if os.path.exists(output_file_name) and not args.clobber:
@@ -167,34 +167,62 @@ for query_batch, e, m in zip(query_imgs_raw, dat['map_name'], circle_masks):
 
         if args.postfilter:
             corr = corr.cpu()
-            mean_best_per_query = corr.view([query_batch.shape[0],-1,192]).max(dim=-1)[0].mean(dim=0)
-            mbq_indices = mean_best_per_query.topk(args.postfilter_num, dim=-1)[1]
+            if args.search3d:
+                unique_indices = corr.amax(dim=(-1,-2)).topk(args.postfilter_num, dim=-1)[1]
 
-            if args.pf_all_proj:
-                best_per_query_proj = corr.view([query_batch.shape[0],-1,192]).max(dim=-1)[0]
-                bpqp_indices = best_per_query_proj.topk(args.postfilter_num, dim=-1)[1]
-                unique_indices = torch.unique(torch.cat([mbq_indices.unsqueeze(0), bpqp_indices]))
+                trans_pf = torch.tensor(grid_3d(0, args.translation_extent_pf, args.num_translations_pf)).cuda()
+                theta, phi = so3_grid.grid_s2(rotation_resol)
+                psi = so3_grid.grid_s1(rotation_resol)
+                quats2 = so3_grid.hopf_to_quat(
+                    np.repeat(theta, len(psi)),
+                    np.repeat(phi, len(psi)),
+                    np.tile(psi, len(theta)),
+                ) 
+
+                rots2_pf = lie_tools.quaternions_to_SO3(torch.from_numpy(quats2)).cuda()
+
+                print(f"Postfiltering {unique_indices.shape[0]} densities...")
+
+                vols_pf = vols[unique_indices]
+
+                corr_pf = optimize_rot_trans_chunked(vols_pf - vols_pf.mean(dim=(-1,-2,-3), keepdim=True), 
+                                                query_batch - query_batch.mean(dim=(-1,-2,-3), keepdim=True),
+                                                rots1,
+                                                rots2_pf,
+                                                trans_pf,
+                                                hartley_corr=not args.realspace_corr,
+                                                chunk_size=args.postfilter_chunk_size)
+
+
             else:
-                bpqp_indices = None
-                unique_indices = torch.unique(mbq_indices)
+                mean_best_per_query = corr.view([query_batch.shape[0],-1,192]).max(dim=-1)[0].mean(dim=0)
+                mbq_indices = mean_best_per_query.topk(args.postfilter_num, dim=-1)[1]
 
-            print(f"Postfiltering {unique_indices.shape[0]} densities...")
+                if args.pf_all_proj:
+                    best_per_query_proj = corr.view([query_batch.shape[0],-1,192]).max(dim=-1)[0]
+                    bpqp_indices = best_per_query_proj.topk(args.postfilter_num, dim=-1)[1]
+                    unique_indices = torch.unique(torch.cat([mbq_indices.unsqueeze(0), bpqp_indices]))
+                else:
+                    bpqp_indices = None
+                    unique_indices = torch.unique(mbq_indices)
 
-            pf_images_raw = images_all_raw[unique_indices]
+                print(f"Postfiltering {unique_indices.shape[0]} densities...")
 
-            trans_pf = torch.tensor(shift_grid.base_shift_grid(0, args.translation_extent_pf, args.num_translations_pf, xshift=0, yshift=0)).cuda()
-            angles_pf = torch.tensor(so3_grid.grid_s1(args.rotation_resol_pf), dtype=torch.float)
+                pf_images_raw = images_all_raw[unique_indices]
 
-            best_corr_pf, best_indices_pf, corr_pf = optimize_theta_trans_chunked(
-                (pf_images_raw - pf_images_raw.mean(dim=(-1,-2), keepdim=True)).view([-1,128,128]), 
-                (query_batch - query_batch.mean(dim=(-1,-2), keepdim=True)), 
-                trans_pf, 
-                angles_pf, 
-                chunk_size=args.postfilter_chunk_size,
-                fast_rotate=args.fast_rotate, 
-                hartley_corr= not args.realspace_corr,
-                query_mask=m.unsqueeze(0).cuda() if args.mask_queries else None
-            )
+                trans_pf = torch.tensor(shift_grid.base_shift_grid(0, args.translation_extent_pf, args.num_translations_pf, xshift=0, yshift=0)).cuda()
+                angles_pf = torch.tensor(so3_grid.grid_s1(args.rotation_resol_pf), dtype=torch.float)
+
+                best_corr_pf, best_indices_pf, corr_pf = optimize_theta_trans_chunked(
+                    (pf_images_raw - pf_images_raw.mean(dim=(-1,-2), keepdim=True)).view([-1,128,128]), 
+                    (query_batch - query_batch.mean(dim=(-1,-2), keepdim=True)), 
+                    trans_pf, 
+                    angles_pf, 
+                    chunk_size=args.postfilter_chunk_size,
+                    fast_rotate=args.fast_rotate, 
+                    hartley_corr= not args.realspace_corr,
+                    query_mask=m.unsqueeze(0).cuda() if args.mask_queries else None
+                )
 
     end_time = time.time()
     search_time = end_time - start_time
@@ -203,7 +231,11 @@ for query_batch, e, m in zip(query_imgs_raw, dat['map_name'], circle_masks):
     res_dict = {"corr" : corr.cpu(),
                 "translation_vectors" : None if trans is None else trans.cpu(),
                 "search_time" : search_time,
-                "rotation_vectors" : rots2.cpu()}
+                "rotation_vectors" : rots2.cpu() if args.search3d else angles,
+                "corr_pf": corr_pf.cpu() if args.postfilter else None,
+                "rotation_vectors_pf": (rots2_pf.cpu() if args.search3d else angles_pf.cpu()) if args.postfilter else None,
+                "translation_vectors_pf": (None if trans_pf is None else trans_pf.cpu()) if args.postfilter else None,
+                "unique_indices": unique_indices.cpu() if args.postfilter else None}
 
     if args.search3d:
         res_dict.update({
@@ -215,12 +247,8 @@ for query_batch, e, m in zip(query_imgs_raw, dat['map_name'], circle_masks):
             "best_indices": best_indices.cpu(), 
             "best_corr_pf": best_corr_pf.cpu() if args.postfilter else None,
             "best_indices_pf": best_indices_pf.cpu() if args.postfilter else None,
-            "corr_pf": corr_pf.cpu() if args.postfilter else None,
             "mbq_indices": mbq_indices.cpu() if args.postfilter else None,
-            "unique_indices": unique_indices.cpu(),
             "bpqp_indices" : bpqp_indices.cpu() if args.pf_all_proj else None,
-            "rotation_vectors_pf": angles_pf.cpu() if args.postfilter else None,
-            "translation_vectors_pf": (None if trans_pf is None else trans_pf.cpu()) if args.postfilter else None
         })
 
     torch.save(res_dict, output_file_name)
