@@ -255,7 +255,7 @@ def optimize_rot_trans_chunked(ref_maps, query_maps, query_rotation_matrices, re
             if hartley_corr:
                 chunk_refs[:chunk_size_actual].copy_(symmetrize_ht3(torch.stack([htn_center(r) for r in ref_maps[chunk_start:chunk_end]])))
             else:
-                chunk_refs[:chunk_size_actual].copy_ (ref_maps[chunk_start:chunk_end])
+                chunk_refs[:chunk_size_actual].copy_(ref_maps[chunk_start:chunk_end])
 
             with torch.no_grad(): # this shouldn't do anything by whatever
                 # Process chunk
