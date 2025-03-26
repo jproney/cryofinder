@@ -8,7 +8,7 @@ def score_hits(topics, indices, terms):
 
     for i, (ts, ind) in enumerate(zip(terms, indices)):
         ind = ind.view((-1,))
-        hit_topics = [topics[j][1].lower() for j in ind]
+        hit_topics = [topics[j.item()][1].lower() for j in ind]
         correct = [any([all([a in ht for a in t.split(";")]) for t in ts]) for ht in hit_topics]
         res[i] = torch.tensor(correct, dtype=torch.float).view(res[i].shape)
     return res
