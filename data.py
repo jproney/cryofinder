@@ -29,7 +29,7 @@ def corrupt_with_ctf(batch_ptcls, batch_ctf_params, snr1, snr2, freqs, b_factor=
 class ContrastiveProjectionDataset(Dataset):
     def __init__(self, images, phis, thetas, object_ids, pos_angle_threshold=30, pclean=0.3, snr1=[1.5], 
                  dfu=[10000], Apix=5.0, ang=0.0, kv=300, cs=2.7, wgh=0.1, ps=0.0, proj_per_obj=192, img_size=128, p_hard=0.0,
-                 obj_distance_matrix=None, pos_sim_threshold=0.45, neg_sim_threshold=0.35):
+                 obj_distance_matrix=None, pos_sim_threshold=0.5, neg_sim_threshold=0.4):
         """
         Dataset for contrastive learning of image projections.
         
@@ -106,13 +106,15 @@ class ContrastiveProjectionDataset(Dataset):
             similarities = self.obj_distance_matrix[obj_idx]
             
             # Find objects with similarity above threshold for positive pairs
-            pos_obj_candidates = torch.where(similarities >= self.pos_sim_threshold)[0]
+            # Exclude the anchor object itself to prioritize different objects
+            pos_obj_candidates = torch.where((similarities >= self.pos_sim_threshold) & 
+                                            (torch.arange(len(similarities)) != obj_idx))[0]
             
-            # If no candidates found or only the anchor object itself, use the same object
-            if len(pos_obj_candidates) <= 1:
+            # If no different objects found with high similarity, fall back to same object
+            if len(pos_obj_candidates) == 0:
                 pos_obj_idx = obj_idx
             else:
-                # Sample from candidate objects (could include the same object)
+                # Sample from candidate objects (different from anchor)
                 pos_obj_idx = pos_obj_candidates[torch.randint(len(pos_obj_candidates), (1,))].item()
             
             # Find objects with similarity below threshold for negative pairs
