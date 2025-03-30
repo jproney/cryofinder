@@ -29,7 +29,7 @@ def corrupt_with_ctf(batch_ptcls, batch_ctf_params, snr1, snr2, freqs, b_factor=
 class ContrastiveProjectionDataset(Dataset):
     def __init__(self, images, phis, thetas, object_ids, pos_angle_threshold=30, pclean=0.3, snr1=[1.5], 
                  dfu=[10000], Apix=5.0, ang=0.0, kv=300, cs=2.7, wgh=0.1, ps=0.0, proj_per_obj=192, img_size=128, p_hard=0.0,
-                 obj_distance_matrix=None, pos_sim_threshold=0.5, neg_sim_threshold=0.4):
+                 obj_distance_matrix=None, pos_sim_threshold=0.45, neg_sim_threshold=0.35):
         """
         Dataset for contrastive learning of image projections.
         
