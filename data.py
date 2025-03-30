@@ -28,7 +28,8 @@ def corrupt_with_ctf(batch_ptcls, batch_ctf_params, snr1, snr2, freqs, b_factor=
 
 class ContrastiveProjectionDataset(Dataset):
     def __init__(self, images, phis, thetas, object_ids, pos_angle_threshold=30, pclean=0.3, snr1=[1.5], 
-                 dfu=[10000], Apix=5.0, ang=0.0, kv=300, cs=2.7, wgh=0.1, ps=0.0, proj_per_obj=192, img_size=128, p_hard=0.0):
+                 dfu=[10000], Apix=5.0, ang=0.0, kv=300, cs=2.7, wgh=0.1, ps=0.0, proj_per_obj=192, img_size=128, p_hard=0.0,
+                 obj_distance_matrix=None, pos_sim_threshold=0.5, neg_sim_threshold=0.4):
         """
         Dataset for contrastive learning of image projections.
         
@@ -46,6 +47,9 @@ class ContrastiveProjectionDataset(Dataset):
             cs: Spherical aberration in mm
             wgh: Amplitude contrast ratio
             ps: Phase shift in radians
+            obj_distance_matrix: Matrix of shape (num_objects, num_objects) containing similarity scores between objects
+            pos_sim_threshold: Minimum similarity threshold for positive pairs (default 0.5)
+            neg_sim_threshold: Maximum similarity threshold for negative pairs (default 0.4)
         """
         self.images = images
         self.phis = phis 
@@ -64,6 +68,9 @@ class ContrastiveProjectionDataset(Dataset):
         self.proj_per_obj = proj_per_obj
         self.img_size = img_size
         self.p_hard = p_hard
+        self.obj_distance_matrix = obj_distance_matrix
+        self.pos_sim_threshold = pos_sim_threshold
+        self.neg_sim_threshold = neg_sim_threshold
 
         # Create a Lattice object for transformations
         self.lat = Lattice(img_size + 1)
@@ -81,8 +88,8 @@ class ContrastiveProjectionDataset(Dataset):
         """
         Returns:
             anchor_img: The anchor image
-            pos_img: A positive pair image (same object, similar angle)
-            neg_img: A negative pair image (different object)
+            pos_img: A positive pair image (same object or similar object, similar angle)
+            neg_img: A negative pair image (different object with low similarity)
         """
         # Determine object and projection indices
         obj_idx = idx // self.proj_per_obj
@@ -93,23 +100,77 @@ class ContrastiveProjectionDataset(Dataset):
         anchor_obj = self.object_ids[obj_idx]
         theta1, phi1 = self.thetas[obj_idx, proj_id], self.phis[obj_idx, proj_id]
 
-        # Calculate angular distances for positive pair selection
-        angle_dists = torch.arccos(
-            torch.sin(theta1) * torch.sin(self.thetas[obj_idx]) * torch.cos(phi1 - self.phis[obj_idx]) + 
-            torch.cos(theta1) * torch.cos(self.thetas[obj_idx])
-        )
+        # Determine if we should use the distance matrix for sampling
+        if self.obj_distance_matrix is not None:
+            # Get similarity scores for the anchor object
+            similarities = self.obj_distance_matrix[obj_idx]
+            
+            # Find objects with similarity above threshold for positive pairs
+            pos_obj_candidates = torch.where(similarities >= self.pos_sim_threshold)[0]
+            
+            # If no candidates found or only the anchor object itself, use the same object
+            if len(pos_obj_candidates) <= 1:
+                pos_obj_idx = obj_idx
+            else:
+                # Sample from candidate objects (could include the same object)
+                pos_obj_idx = pos_obj_candidates[torch.randint(len(pos_obj_candidates), (1,))].item()
+            
+            # Find objects with similarity below threshold for negative pairs
+            neg_obj_candidates = torch.where(similarities <= self.neg_sim_threshold)[0]
+            
+            # If no candidates found, use random object different from anchor
+            if len(neg_obj_candidates) == 0:
+                neg_obj_idx = torch.randint(len(self.object_ids), (1,)).item()
+                while neg_obj_idx == obj_idx:  # Ensure different object
+                    neg_obj_idx = torch.randint(len(self.object_ids), (1,)).item()
+            else:
+                # Sample from candidate objects
+                neg_obj_idx = neg_obj_candidates[torch.randint(len(neg_obj_candidates), (1,))].item()
+        else:
+            # If no distance matrix provided, use same object for positive and different for negative
+            pos_obj_idx = obj_idx
+            
+            # Sample random object for negative
+            neg_obj_idx = torch.randint(len(self.object_ids), (1,)).item()
+            while neg_obj_idx == obj_idx:  # Ensure different object
+                neg_obj_idx = torch.randint(len(self.object_ids), (1,)).item()
+
+        # For positive pair, if using same object, select based on angular distance
+        if pos_obj_idx == obj_idx:
+            # Calculate angular distances for positive pair selection
+            angle_dists = torch.arccos(
+                torch.sin(theta1) * torch.sin(self.thetas[obj_idx]) * torch.cos(phi1 - self.phis[obj_idx]) + 
+                torch.cos(theta1) * torch.cos(self.thetas[obj_idx])
+            )
+            
+            # Create mask of valid positive pairs (within threshold and not same projection)
+            valid_mask = (angle_dists <= self.pos_threshold * torch.pi/180)
+            valid_mask[proj_id] = False  # Exclude the anchor projection
+            
+            # Sample from valid indices
+            valid_indices = torch.where(valid_mask)[0]
+            if len(valid_indices) > 0:
+                pos_proj_idx = valid_indices[torch.randint(len(valid_indices), (1,))].item()
+            else:
+                # If no valid indices, choose a random projection from the same object
+                pos_proj_idx = torch.randint(self.images.shape[1], (1,)).item()
+                while pos_proj_idx == proj_id:  # Ensure different projection
+                    pos_proj_idx = torch.randint(self.images.shape[1], (1,)).item()
+        else:
+            # If using different but similar object, choose random projection
+            pos_proj_idx = torch.randint(self.images.shape[1], (1,)).item()
         
-        # Create mask of valid positive pairs (within threshold and not same projection)
-        valid_mask = (angle_dists <= self.pos_threshold * torch.pi/180)
-        
-        # Sample from valid indices
-        valid_indices = torch.where(valid_mask)[0]
-        pos_idx = valid_indices[torch.randint(len(valid_indices), (1,))].item()
-        pos_img = self.images[obj_idx, pos_idx]
+        # Get positive image
+        pos_img = self.images[pos_obj_idx, pos_proj_idx]
+        pos_obj = self.object_ids[pos_obj_idx]
         
         # With probability p_hard, select hard negative from same object
-        if torch.rand(1).item() < self.p_hard:
+        if torch.rand(1).item() < self.p_hard and self.obj_distance_matrix is None:
             # Create mask of valid hard negatives (beyond 2x angular threshold)
+            angle_dists = torch.arccos(
+                torch.sin(theta1) * torch.sin(self.thetas[obj_idx]) * torch.cos(phi1 - self.phis[obj_idx]) + 
+                torch.cos(theta1) * torch.cos(self.thetas[obj_idx])
+            )
             valid_mask = (angle_dists > self.pos_threshold * torch.pi/180 * 2)
             
             # Calculate cross correlations between anchor and all projections of same object
@@ -128,18 +189,11 @@ class ContrastiveProjectionDataset(Dataset):
                 neg_obj = self.object_ids[obj_idx]
             else:
                 # Fall back to different object if no valid hard negatives found
-                neg_obj_idx = torch.randint(len(self.object_ids), (1,)).item()
-                while neg_obj_idx == obj_idx:  # Ensure different object
-                    neg_obj_idx = torch.randint(len(self.object_ids), (1,)).item()
                 neg_proj_idx = torch.randint(self.images.shape[1], (1,)).item()
                 neg_img = self.images[neg_obj_idx, neg_proj_idx]
                 neg_obj = self.object_ids[neg_obj_idx]
-        # Otherwise select negative from different object
         else:
-            neg_obj_idx = torch.randint(len(self.object_ids), (1,)).item()
-            while neg_obj_idx == obj_idx:  # Ensure different object
-                neg_obj_idx = torch.randint(len(self.object_ids), (1,)).item()
-                
+            # Get negative image from selected object
             neg_proj_idx = torch.randint(self.images.shape[1], (1,)).item()
             neg_img = self.images[neg_obj_idx, neg_proj_idx]
             neg_obj = self.object_ids[neg_obj_idx]
@@ -156,7 +210,6 @@ class ContrastiveProjectionDataset(Dataset):
         pos_ctf[1] = self.Apix
         neg_ctf[0] = self.img_size
         neg_ctf[1] = self.Apix
-
 
         # Randomly sample remaining CTF params for each image
         for i, param_list in enumerate([self.snr1, 0.0, self.dfu, 0.0, self.ang, self.kv,
@@ -178,7 +231,7 @@ class ContrastiveProjectionDataset(Dataset):
         images = torch.stack([anchor_img, pos_img, neg_img], dim=0)
         ctf_params = torch.stack([anchor_ctf, pos_ctf, neg_ctf], dim=0)
 
-        return images, ctf_params, torch.tensor([anchor_obj, anchor_obj, neg_obj])
+        return images, ctf_params, torch.tensor([anchor_obj, pos_obj, neg_obj])
 
     @staticmethod
     def collate_fn(batch, lat, mask, freqs, normalize=True, ctf_corrupt=False, noise=True):
