@@ -191,11 +191,19 @@ if __name__ == "__main__":
     # Load your dataset
     train_dat = torch.load("/home/gridsan/jroney/train_projections.pt")
     val_dat = torch.load("/home/gridsan/jroney/val_projections.pt")
+    dmat = torch.load("/home/gridsan/jroney/siren_vols_distance_mat.pt")
 
-    train_dataset = ContrastiveProjectionDataset(train_dat['images'], train_dat['phis'], train_dat['thetas'], train_dat['ids'], pos_angle_threshold=45)
+    images_all = torch.cat([train_dat['images'], val_dat['images']])
+    phis_all = torch.cat([train_dat['phis'], val_dat['phis']])
+    theta_all = torch.cat([train_dat['thetas'], val_dat['thetas']])
+    ids = torch.cat([train_dat['ids'], val_dat['ids']])
+
+
+    train_dataset = ContrastiveProjectionDataset(images_all, phis_all, theta_all, ids, pos_angle_threshold=45, obj_distance_matrix=dmat, pos_sim_threshold=0.4, neg_sim_threshold=0.35)
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, collate_fn=lambda x: ContrastiveProjectionDataset.collate_fn(x, train_dataset.lat, train_dataset.mask, train_dataset.freqs, ctf_corrupt=False, noise=True))
 
-    val_dataset = ContrastiveProjectionDataset(val_dat['images'], val_dat['phis'], val_dat['thetas'], val_dat['ids'])
+    dmat_val = dmat[train_dat['images'].shape[0]:, train_dat['images'].shape[0]:]
+    val_dataset = ContrastiveProjectionDataset(val_dat['images'], val_dat['phis'], val_dat['thetas'], val_dat['ids'], pos_angle_threshold=45, obj_distance_matrix=dmat_val, pos_sim_threshold=0.4, neg_sim_threshold=0.35)
     val_loader = DataLoader(val_dataset, batch_size=args.batch_size*10, shuffle=False)
 
     # Initialize model and training module
