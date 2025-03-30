@@ -206,6 +206,9 @@ if __name__ == "__main__":
     val_dataset = ContrastiveProjectionDataset(val_dat['images'], val_dat['phis'], val_dat['thetas'], val_dat['ids'], pos_angle_threshold=45, obj_distance_matrix=dmat_val, pos_sim_threshold=0.4, neg_sim_threshold=0.35)
     val_loader = DataLoader(val_dataset, batch_size=args.batch_size*10, shuffle=False)
 
+    print(dmat.shape)
+    print(dmat_val.shape)
+
     # Initialize model and training module
     model = ContrastiveModel(embedding_dim=args.embedding_dim)
     training_module = ContrastiveLearningModule(model)
