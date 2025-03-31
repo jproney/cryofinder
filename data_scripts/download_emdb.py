@@ -1,10 +1,8 @@
 import os
 import requests
-import xml.etree.ElementTree as ET
 import gzip
 import mrcfile
 import shutil
-import pandas as pd
 
 def get_emdb_metadata(emdb_id):
     url = f"https://www.ebi.ac.uk/emdb/api/entry/{emdb_id}"
@@ -52,10 +50,6 @@ def load_map(map_path):
         print(f"Loaded map with shape: {data.shape}")
         return data
 
-
-
-# df = pd.read_csv("/nobackup/users/jamesron/siren_maps.csv")
-# emdb_ids = df['emdb_id'].astype(str).tolist()
 
 
 csv_lines = ["emdb_map_file,raw_pixel_size_angstrom,raw_box_size_pixel\n"]
