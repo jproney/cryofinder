@@ -9,4 +9,4 @@
 #SBATCH --gres=gpu:volta:1
 
 module load anaconda/Python-ML-2025a
-python /home/gridsan/jroney/broeyjoey/train.py --exp_name resnet_v1 --batch_size 32
+python /home/gridsan/jroney/broeyjoey/train.py --exp_name resnet_cluster_v1 --batch_size 32
