@@ -3,7 +3,7 @@ import numpy as np
 import torch.nn.functional as F
 from cryodrgn.shift_grid import grid_1d
 import pickle
-from cryodrgn.fft import htn_center
+from cryodrgn.fft import htn_center, ihtn_center
 
 
 
@@ -34,7 +34,7 @@ def downsample_vol(map, res, target_res=5, target_size=128):
     return map
 
 
-def translate_ht3(img, t, coords=None):
+def translate_ht3(img, t, coords=None, input_hartley=True, output_hartley=True):
     """
     Translate an image by phase shifting its Hartley transform
 
@@ -45,9 +45,11 @@ def translate_ht3(img, t, coords=None):
 
     Returns:
         Shifted images (B x T x img_dims)
-
-    img must be 1D unraveled image, symmetric around DC component
     """
+
+    if not input_hartley:
+        img = symmetrize_ht3(torch.stack([htn_center(im) for im in img]))
+
 
     B, D, _, _ = img.shape
     T, _ = t.shape
@@ -67,10 +69,27 @@ def translate_ht3(img, t, coords=None):
     c = torch.cos(tfilt)  # BxTxN
     s = torch.sin(tfilt)  # BxTxN
 
-    return (c * img + s * img[:, :, torch.arange(len(coords) - 1, -1, -1)]).view((B,T,D,D,D))
+    trans_img =  (c * img + s * img[:, :, torch.arange(len(coords) - 1, -1, -1)]).view((B,T,D,D,D))
 
+    if not output_hartley:
+        trans_img = torch.stack([torch.stack([ihtn_center(im) for im in batch]) for batch in trans_img])
+
+    return trans_img
 
 def symmetrize_ht3(ht: torch.Tensor) -> torch.Tensor:
+    """
+    Symmetrize a 3D Hartley transform by adding the required redundant planes.
+    
+    Args:
+        ht (torch.Tensor): Input 3D Hartley transform of shape (D,D,D) or (B,D,D,D)
+                          where D is the dimension and B is the batch size.
+                          The input is assumed to be of size D along each dimension.
+    
+    Returns:
+        torch.Tensor: Symmetrized Hartley transform of shape (B,D+1,D+1,D+1).
+                     The output has size D+1 along each dimension to include
+                     the redundant planes required for proper symmetry.
+    """
     if ht.ndim == 3:
         ht = ht[np.newaxis, ...]
     assert ht.ndim == 4
@@ -93,6 +112,20 @@ def symmetrize_ht3(ht: torch.Tensor) -> torch.Tensor:
 def grid_3d(
     resol: int, extent: int, ngrid: int, xshift: int = 0, yshift: int = 0, zshift: int = 0
 ) -> np.ndarray:
+    """
+    Generate a 3D grid of coordinates.
+    
+    Args:
+        resol (int): Resolution/spacing between grid points
+        extent (int): Total extent/size of the grid
+        ngrid (int): Number of grid points along each dimension
+        xshift (int, optional): Shift of grid in x direction. Defaults to 0.
+        yshift (int, optional): Shift of grid in y direction. Defaults to 0. 
+        zshift (int, optional): Shift of grid in z direction. Defaults to 0.
+
+    Returns:
+        np.ndarray: Array of shape (ngrid^3, 3) containing 3D coordinates of grid points
+    """
     x = grid_1d(resol, extent, ngrid, shift=xshift)
     y = grid_1d(resol, extent, ngrid, shift=yshift)
     z = grid_1d(resol, extent, ngrid, shift=zshift)
@@ -127,20 +160,29 @@ def generate_rotated_slices(D, rotation_matrices):
 
     return rotated_slices
 
-def optimize_rot_trans(ref_maps, query_maps, query_rotation_matrices, ref_rotation_offsets, translation_vectors):
+def optimize_rot_trans(ref_maps, query_maps, query_rotation_matrices, ref_rotation_offsets, translation_vectors, input_hartley=True, hartley_corr=True):
     """
     Optimize rotation and translation for query and reference maps.
 
     Args:
-        query_maps: Tensor of shape N x D x D x D, query maps
         ref_maps: Tensor of shape M x D x D x D, reference maps 
+        query_maps: Tensor of shape N x D x D x D, query maps
         query_rotation_matrices: Tensor of shape R_q x 3 x 3, rotation matrices for query maps
         ref_rotation_offsets: Tensor of shape R_r x 3 x 3, rotation offsets for reference maps
         translation_vectors: Tensor of shape T x 3, translation vectors
 
     Returns:
-        correlations: Tensor of shape N x M x T x R_r, normalized correlation values
+        best_indices: Tensor of shape N x 3 containing indices of best matches for each query:
+            - Column 0: Index of best reference map
+            - Column 1: Index of best translation
+            - Column 2: Index of best rotation
+        bestcorr: Tensor of shape N containing correlation values for best matches
+        corr: Tensor of shape N x M x T x R_r, normalized correlation values between query and reference slice stacks
+        translated_rotated_query: Tensor of shape N x R_q x D x D, extracted slices from optimally translated query
+        sliced_ref: Tensor of shape N x R_q x D x D, extracted slices from the optimally rotated, best-matching ereference for each query
     """
+
+
     N, D, _, _ = query_maps.shape  # N x D x D x D
     M, _, _, _ = ref_maps.shape    # M x D x D x D
     R_q, _, _ = query_rotation_matrices.shape  # R_q x 3 x 3
@@ -167,9 +209,11 @@ def optimize_rot_trans(ref_maps, query_maps, query_rotation_matrices, ref_rotati
 
     # Translate query maps: N x T x D x D x D
     if translation_vectors is None:
+        if not input_hartley and hartley_corr:
+            query_maps = symmetrize_ht3(torch.stack([htn_center(qm) for qm in query_maps]))
         translated_query_maps = query_maps.unsqueeze(1)
     else:
-        translated_query_maps = translate_ht3(query_maps, translation_vectors)
+        translated_query_maps = translate_ht3(query_maps, translation_vectors, input_hartley=input_hartley, output_hartley=hartley_corr)
 
     # Extract central slices from translated query maps using grid_query
     translated_rotated_query = F.grid_sample(translated_query_maps, 
@@ -178,6 +222,9 @@ def optimize_rot_trans(ref_maps, query_maps, query_rotation_matrices, ref_rotati
     translated_rotated_query = translated_rotated_query.view(N, T, R_q, D, D)
 
     # Extract central slices from reference maps using grid_ref
+    if not input_hartley and hartley_corr:
+        ref_maps = symmetrize_ht3(torch.stack([htn_center(rm) for rm in ref_maps]))
+
     ref_maps = ref_maps.unsqueeze(1)  # M x 1 x D x D x D
     sliced_ref = F.grid_sample(ref_maps,
                               grid_ref,
@@ -200,9 +247,16 @@ def optimize_rot_trans(ref_maps, query_maps, query_rotation_matrices, ref_rotati
 
     corr = (((translated_rotated_query - query_mean) * (sliced_ref - ref_mean)).sum(dim=(3,-2,-1), keepdim=True) / query_std / ref_std).mean(dim=(3,-2,-1)) # N x M x T x R_r
     br_corr, bestrots = corr.max(dim=-1)
-    _, besttrans = torch.max(br_corr, dim=-1)
+    bt_corr, besttrans = torch.max(br_corr, dim=-1)
     bestrot = bestrots.gather(-1, besttrans.unsqueeze(-1)) #N x M 
-    return corr, translated_rotated_query.view(N, T, R_q, D, D)[torch.arange(N).unsqueeze(1), besttrans], sliced_ref.view(M, R_q, R_r, D, D)[torch.arange(M).view([1,-1,1]), torch.arange(R_q).view([1,1,-1]), bestrot]
+
+    bestcorr, bestref = torch.max(bt_corr, dim=-1)
+
+    # Combine best indices into a single Nx3 tensor
+    best_indices = torch.stack([bestref, besttrans[torch.arange(N), bestref], bestrot[torch.arange(N), bestref]], dim=1)
+
+
+    return best_indices, bestcorr, corr, translated_rotated_query.view(N, T, R_q, D, D)[torch.arange(N), besttrans[torch.arange(N), bestref]], sliced_ref.view(M, R_q, R_r, D, D)[bestref, :, bestrot[torch.arange(N), bestref]]
 
 
 
@@ -217,9 +271,12 @@ def optimize_rot_trans_chunked(ref_maps, query_maps, query_rotation_matrices, re
         ref_rotation_offsets: Tensor of shape R_r x 3 x 3, rotation offsets for reference maps
         translation_vectors: Tensor of shape T x 3, translation vectors
         chunk_size: Number of reference maps to process at once
+        hartley_corr: bool, optional (default=True) compute correlations in Hartley space using symmetrized Hartley transforms.
 
     Returns:
-        correlations: Tensor of shape N x M x T x R_r, normalized correlation values
+        best_corr: shape N, best correlation for each query image
+        best_indices: shape N x 3, indices of best (reference, translation, rotation) for each query
+        corr: Tensor of shape N x M x T x R_r, correlation values
     """
     N = query_maps.shape[0]
     D = query_maps.shape[1]
@@ -232,7 +289,10 @@ def optimize_rot_trans_chunked(ref_maps, query_maps, query_rotation_matrices, re
         M = ref_maps.shape[0]
         chunk_files = [None]
     
-    correlations_list = []
+    # Initialize arrays to store best results
+    best_corr = torch.full((N,), float('-inf'))
+    best_indices = torch.zeros((N, 3), dtype=torch.long)
+    corr_all = []
     
     if hartley_corr:
         query_maps = symmetrize_ht3(torch.stack([htn_center(q) for q in query_maps]))
@@ -241,6 +301,7 @@ def optimize_rot_trans_chunked(ref_maps, query_maps, query_rotation_matrices, re
     chunk_refs = torch.empty(chunk_size, D+1, D+1, D+1, device=device) if hartley_corr else torch.empty(chunk_size, D, D, D, device=device)
     
     # Process reference maps in chunks
+    global_offset = 0
     for cf in chunk_files:
         if cf is not None:
             data = pickle.load(open(cf, 'rb'))
@@ -257,22 +318,30 @@ def optimize_rot_trans_chunked(ref_maps, query_maps, query_rotation_matrices, re
             else:
                 chunk_refs[:chunk_size_actual].copy_(ref_maps[chunk_start:chunk_end])
 
-            with torch.no_grad(): # this shouldn't do anything by whatever
-                print(chunk_start)
 
-                # Process chunk
-                chunk_correlations, _, _ = optimize_rot_trans(
-                    chunk_refs[:chunk_size_actual], 
-                    query_maps,
-                    query_rotation_matrices,
-                    ref_rotation_offsets,
-                    translation_vectors
-                )
-                
-            chunk_correlations = chunk_correlations.cpu()
+            # Process chunk
+            chunk_best_vals, chunk_best_indices, corr, _, _ = optimize_rot_trans(
+                                                            chunk_refs[:chunk_size_actual], 
+                                                            query_maps,
+                                                            query_rotation_matrices,
+                                                            ref_rotation_offsets,
+                                                            translation_vectors)
+            chunk_best_vals = chunk_best_vals.cpu()
+            chunk_best_indices = chunk_best_indices.cpu()
+            corr = corr.cpu()
 
-            correlations_list.append(chunk_correlations)
+            # Adjust reference indices to account for chunking
+            chunk_best_indices[:,0] += chunk_start + global_offset
+
+            # Update best results where this chunk had better correlations
+            better_mask = chunk_best_vals > best_corr
+            best_corr[better_mask] = chunk_best_vals[better_mask]
+            best_indices[better_mask] = chunk_best_indices[better_mask]
+
+            corr_all.append(corr)
+
+        global_offset += M
+
             
     # Combine results from all chunks
-    correlations = torch.cat(correlations_list, dim=1)
-    return correlations
+    return best_corr, best_indices, torch.cat(corr_all, dim=1)

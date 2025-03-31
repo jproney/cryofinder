@@ -230,7 +230,7 @@ def optimize_theta_trans_chunked(ref_images, query_images, trans, rot, chunk_siz
         query_mask: Optional[torch.Tensor], shape N x D x D, mask for query images (default: None)
     Returns:
         best_corr: shape N, best correlation for each query image
-        best_indices: shape N x 3, indices of best (rotation, reference, translation) for each query
+        best_indices: shape N x 3, indices of best (reference, translation, rotation) for each query
         corr: shape N x M x T x R, correlation values for each query image with each reference image at each translation and rotation
     """
 
@@ -267,7 +267,7 @@ def optimize_theta_trans_chunked(ref_images, query_images, trans, rot, chunk_siz
     for cf in chunk_files:
 
         if cf is not None:
-            print(cf)
+            print(f"Loading {cf}")
             data = pickle.load(open(cf, 'rb'))
             ref_images = data['images'].to(device)
             M = ref_images.shape[0]
