@@ -42,7 +42,7 @@ parser.add_argument('--pf_all_proj', action="store_true", help="Postfilter the t
 args = parser.parse_args()
 
 if len(args.search_data) == 0:
-    search_data = "/home/gridsan/jroney/siren_vols.pt" if args.search3d else "/home/gridsan/jroney/projections_all.pt"
+    search_data = "/home/gridsan/jroney/siren_vols.pt" if args.search3d else "/home/gridsan/jroney/all_projections.pt"
 
 if not args.search3d:
     dat = torch.load(search_data)

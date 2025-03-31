@@ -8,7 +8,16 @@ poselist = []
 ids = []
 
 
-emds = [x[:-1] for x in open("val_ids.txt",'r').readlines()]
+import argparse
+
+parser = argparse.ArgumentParser(description='Create projection dataset from image files.')
+parser.add_argument('--input_file', type=str, default="/home/gridsan/jroney/all_ids.txt",
+                    help='Text file containing list of image IDs')
+parser.add_argument('--output_file', type=str, default="/home/gridsan/jroney/all_projections.pt",
+                    help='Output file path for projection dataset')
+args = parser.parse_args()
+
+emds = [x[:-1] for x in open(args.input_file,'r').readlines()]
 
 for i,e in enumerate(emds):
 
@@ -30,4 +39,4 @@ data = {
     'thetas': thetas
 }
 
-torch.save(data, "val_projections.pt")
+torch.save(data, args.output_file)

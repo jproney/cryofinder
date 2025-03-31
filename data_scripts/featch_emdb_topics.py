@@ -1,4 +1,6 @@
 import requests
+import pickle
+import argparse
 
 # Function to fetch metadata for an EMDB entry
 def get_emdb_metadata(emdb_id):
@@ -8,7 +10,17 @@ def get_emdb_metadata(emdb_id):
             return response.json()
     return {}
 
-all_ids = ["EMD-" + x[:-1].split("_")[-1] for x in open('train_ids.txt').readlines()] + ["EMD-" + x[:-1].split("_")[-1] for x in open('val_ids.txt').readlines()]
+
+# Set up argument parser
+parser = argparse.ArgumentParser(description='Fetch EMDB metadata and topics.')
+parser.add_argument('--input_file', type=str, default="/home/gridsan/jroney/all_ids.txt",
+                    help='Text file containing list of EMDB IDs')
+parser.add_argument('--output_file', type=str, default="/home/gridsan/jroney/emdb_metadata.pkl",
+                    help='Output pickle file for EMDB metadata')
+args = parser.parse_args()
+
+
+all_ids = ["EMD-" + x[:-1].split("_")[-1] for x in open(args.input_file).readlines()]
 
 all_dats = []
 for i, x in enumerate(all_ids):
@@ -27,43 +39,4 @@ for i,d in zip(all_ids, all_dats):
     if 'admin' in d and 'title' in d['admin']:
          proc[-1]['title'] = d['admin']['title']
 
-
-import google.generativeai as genai
-
-# Set up Gemini API key
-genai.configure(api_key="AIzaSyD_KvzoihsuuzmuclSYtqzOzlhxp6_toAw")
-
-# Initialize the model
-model = genai.GenerativeModel("gemini-2.0-flash")
-import pickle
-
-dat = pickle.load(open("emdb_metadata.pkl", 'rb'))
-ti = dat[0]['title']
-
-def extract_proteins_genes(text):
-
-
-    prompt = f"Extract the names of all biological entities from the input text. Extract specific molecule names (e.g. Myoglobin, 80S Ribosomal Subunit, miR16, cAMP, microtubules) and species names (e.g. SARS-CoV-2 Omicron BA.1, E. coli), but do not include highly generic terms like 'protein' and 'dna'. When in doubt, err on the side of including. The preceding entities are just examples, do not return these. Adopt a common format so that the list of names will always be the same even if minor difference exist in the input text. Return the results as a list. The input text from which you should extract entities is as follows:\n\n{text}\n\n"
-
-    response = model.generate_content(prompt)
-
-    return response.text
-
-
-all_topics = pickle.load(open("emdb_topics.pkl", 'rb'))
-import time
-
-for i,d in enumerate(dat):
-    if i  in [x[0] for x in all_topics]:
-        continue 
-
-    try:
-        all_topics.append((i,extract_proteins_genes(d['name'] +' ' + d['title'])))
-        print(i)
-
-        time.sleep(0.5)
-    except Exception as e:
-        print("Hit limit, waiting 15s")
-        time.sleep(15)
-
-pickle.dump(all_topics, open("emdb_topics.pkl", 'wb'))
+pickle.dump(proc, open(args.output_file,'wb'))
