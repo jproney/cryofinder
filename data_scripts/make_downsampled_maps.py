@@ -1,11 +1,11 @@
 import pandas as pd
 from cryodrgn import mrcfile as mrc
 import torch, os
-from map_search import downsample_vol
+from search3d import downsample_vol
 
 all_vols = []
 all_ids = []
-dat = pd.read_csv("../siren_maps.csv")
+dat = pd.read_csv("/home/gridsan/jroney/siren_vols.pt")
 
 for i,(m, apix) in enumerate(zip(dat['map_name'], dat['raw_pixel_size_angstrom'])):
     f = "../raw_maps_07072023/" + m
