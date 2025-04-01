@@ -5,8 +5,8 @@ import argparse
 import pandas as pd
 from cryodrgn import mrcfile as mrc
 from cryodrgn.source import ImageSource
-from search2d import optimize_theta_trans_chunked
-from search3d import optimize_rot_trans_chunked, grid_3d, downsample_vol
+from cryofinder.search2d import optimize_theta_trans_chunked
+from cryofinder.search3d import optimize_rot_trans_chunked, grid_3d, downsample_vol
 from cryodrgn import shift_grid, so3_grid, lie_tools
 
 # Set up argument parser
