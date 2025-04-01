@@ -253,7 +253,7 @@ def optimize_rot_trans(ref_maps, query_maps, query_rotation_matrices, ref_rotati
     bestcorr, bestref = torch.max(bt_corr, dim=-1) # N
 
     # Combine best indices into a single Nx3 tensor
-    best_indices = torch.stack([bestref, besttrans[torch.arange(N), bestref], bestrot[torch.arange(N), bestref]][..., 0], dim=1)
+    best_indices = torch.stack([bestref, besttrans[torch.arange(N), bestref], bestrot[torch.arange(N), bestref][..., 0]], dim=1)
 
 
     return best_indices, bestcorr, corr, translated_rotated_query.view(N, T, R_q, D, D)[torch.arange(N), besttrans[torch.arange(N), bestref]], sliced_ref.view(M, R_q, R_r, D, D)[bestref, :, bestrot[torch.arange(N), bestref]]
