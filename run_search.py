@@ -195,6 +195,8 @@ for query_batch, e, m in zip(query_imgs_raw, dat['map_name'], circle_masks):
 
 
             else:
+                corr = corr.amax(dim=(-1,-2)) # don't care about the exact rotations / translations
+
                 # For each combination of query projection and reference target, take the correlation of the 
                 # best matching reference projection. Then average those values over the query projections to 
                 # get an aggregated query-target fit score
@@ -226,6 +228,8 @@ for query_batch, e, m in zip(query_imgs_raw, dat['map_name'], circle_masks):
                     hartley_corr= not args.realspace_corr,
                     query_mask=m.unsqueeze(0).cuda() if args.mask_queries else None
                 )
+
+                corr_pf = corr_pf.amax(dim=(-1,-2))
 
     end_time = time.time()
     search_time = end_time - start_time
