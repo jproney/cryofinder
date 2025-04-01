@@ -246,17 +246,17 @@ def optimize_rot_trans(ref_maps, query_maps, query_rotation_matrices, ref_rotati
     
 
     corr = (((translated_rotated_query - query_mean) * (sliced_ref - ref_mean)).sum(dim=(3,-2,-1), keepdim=True) / query_std / ref_std).mean(dim=(3,-2,-1)) # N x M x T x R_r
-    br_corr, bestrots = corr.max(dim=-1)
-    bt_corr, besttrans = torch.max(br_corr, dim=-1)
-    bestrot = bestrots.gather(-1, besttrans.unsqueeze(-1)) #N x M 
+    br_corr, bestrots = corr.max(dim=-1) # N x M x T
+    bt_corr, besttrans = torch.max(br_corr, dim=-1) # N x M
+    bestrot = bestrots.gather(-1, besttrans.unsqueeze(-1)) #N x M x 1
 
-    bestcorr, bestref = torch.max(bt_corr, dim=-1)
+    bestcorr, bestref = torch.max(bt_corr, dim=-1) # N
 
     # Combine best indices into a single Nx3 tensor
     best_indices = torch.stack([bestref, besttrans[torch.arange(N), bestref], bestrot[torch.arange(N), bestref]], dim=1)
 
 
-    return best_indices, bestcorr, corr, translated_rotated_query.view(N, T, R_q, D, D)[torch.arange(N), besttrans[torch.arange(N), bestref]], sliced_ref.view(M, R_q, R_r, D, D)[bestref, :, bestrot[torch.arange(N), bestref]]
+    return best_indices, bestcorr, corr, translated_rotated_query.view(N, T, R_q, D, D)[torch.arange(N), besttrans[torch.arange(N), bestref][...,0]], sliced_ref.view(M, R_q, R_r, D, D)[bestref, :, bestrot[torch.arange(N), bestref]]
 
 
 
