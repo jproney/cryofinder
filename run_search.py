@@ -144,15 +144,13 @@ for query_batch, e, m in zip(query_imgs_raw, dat['map_name'], circle_masks):
     start_time = time.time()
     with torch.no_grad():
         if args.search3d:
-            corr = optimize_rot_trans_chunked(vols - vols.mean(dim=(-1,-2,-3), keepdim=True), 
+            best_corr, best_indices, corr = optimize_rot_trans_chunked(vols - vols.mean(dim=(-1,-2,-3), keepdim=True), 
                                               query_batch - query_batch.mean(dim=(-1,-2,-3), keepdim=True),
                                               rots1,
                                               rots2,
                                               trans,
                                               hartley_corr=not args.realspace_corr,
                                               chunk_size=chunk_size)
-            best_corr = None
-            best_indices = None
         else:
             best_corr, best_indices, corr = optimize_theta_trans_chunked(
                 (images - images.mean(dim=(-1,-2), keepdim=True)).view([-1,128,128]), 
@@ -185,7 +183,7 @@ for query_batch, e, m in zip(query_imgs_raw, dat['map_name'], circle_masks):
 
                 vols_pf = vols[unique_indices]
 
-                corr_pf = optimize_rot_trans_chunked(vols_pf - vols_pf.mean(dim=(-1,-2,-3), keepdim=True), 
+                best_corr_pf, best_indices_pf, corr_pf = optimize_rot_trans_chunked(vols_pf - vols_pf.mean(dim=(-1,-2,-3), keepdim=True), 
                                                 query_batch - query_batch.mean(dim=(-1,-2,-3), keepdim=True),
                                                 rots1,
                                                 rots2_pf,
@@ -242,6 +240,10 @@ for query_batch, e, m in zip(query_imgs_raw, dat['map_name'], circle_masks):
                 "corr_pf": corr_pf.cpu() if args.postfilter else None,
                 "rotation_vectors_pf": (rots2_pf.cpu() if args.search3d else angles_pf.cpu()) if args.postfilter else None,
                 "translation_vectors_pf": (None if trans_pf is None else trans_pf.cpu()) if args.postfilter else None,
+                "best_corr": best_corr.cpu(), 
+                "best_indices": best_indices.cpu(), 
+                "best_corr_pf": best_corr_pf.cpu() if args.postfilter else None,
+                "best_indices_pf": best_indices_pf.cpu() if args.postfilter else None,
                 "unique_indices": unique_indices.cpu() if args.postfilter else None}
 
     if args.search3d:
@@ -250,10 +252,6 @@ for query_batch, e, m in zip(query_imgs_raw, dat['map_name'], circle_masks):
          })
     else:
         res_dict.update({
-            "best_corr": best_corr.cpu(), 
-            "best_indices": best_indices.cpu(), 
-            "best_corr_pf": best_corr_pf.cpu() if args.postfilter else None,
-            "best_indices_pf": best_indices_pf.cpu() if args.postfilter else None,
             "mbq_indices": mbq_indices.cpu() if args.postfilter else None,
             "bpqp_indices" : bpqp_indices.cpu() if args.pf_all_proj else None,
         })
