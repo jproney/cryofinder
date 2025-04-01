@@ -3,7 +3,7 @@ import torch.nn.functional as F
 from torch.utils.data import Dataset
 from cryodrgn import ctf
 from cryodrgn.lattice import Lattice
-from cryofinder.proj_search import rotate_images, translate_images
+from cryofinder.search2d import rotate_images, translate_images
 
 # corrupt a batch of particle images with simulated noise
 def corrupt_with_ctf(batch_ptcls, batch_ctf_params, snr1, snr2, freqs, b_factor=None):
