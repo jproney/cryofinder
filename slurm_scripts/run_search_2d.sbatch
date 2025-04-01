@@ -10,4 +10,4 @@
 #SBATCH --mem=128G
 
 module load anaconda/Python-ML-2025a
-python search_maps.py --metadata_csv ../val2025_map_data.csv --search3d --rotation_resol 1 --chunk_size 2 --postfilter --num_translations_pf 1 --translation_extent_pf 0 --postfilter_chunk_size 1 --output_dir /home/gridsan/jroney/search_results2
+python ../run_search.py --metadata_csv /home/gridsan/jroney/val2025_map_data.csv --rotation_resol 1 --chunk_size 2400 --postfilter --num_translations_pf 7 --translation_extent_pf 7 --rotation_resol_pf 2 --pf_all_proj --postfilter_chunk_size 30 --output_dir /home/gridsan/jroney/search_results_refac
