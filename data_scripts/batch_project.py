@@ -4,9 +4,9 @@ import subprocess
 import pandas as pd
 
 parser = argparse.ArgumentParser(description='Batch process .map files with project3d.py')
-parser.add_argument('input_file', help='csv with the names of volumes and metadata')
-parser.add_argument('input_dir', help='Directory containing .map files')
-parser.add_argument('output_dir', help='Directory for output files')
+parser.add_argument('input_file', default="/home/gridsan/jroney/siren_maps.csv", help='csv with the names of volumes and metadata')
+parser.add_argument('input_dir', default="/home/gridsan/jroney/raw_maps_07072023/", help='Directory containing .map files')
+parser.add_argument('output_dir', default="/home/gridsan/jroney/projections/", help='Directory for output files')
 parser.add_argument('--start', type=int, default=0, help='Lowest index to process')
 parser.add_argument('--end', type=int, default=10000, help='Highest index to process')
 parser.add_argument('--healpy-grid', type=int, default=2, help='Resolution level for healpy grid')

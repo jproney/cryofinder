@@ -44,3 +44,35 @@ def select_best_maps(corr, strategy, maxk=64):
         top_indices = corr.max(dim=-1)[0].topk(maxk, dim=-1)[1]
 
     return top_indices
+
+
+import matplotlib.pyplot as plt
+import numpy as np
+
+def plot_projections(imgs, labels=None, max_imgs=1000, nrows=2, norm_brightness=False):
+    if len(imgs) > max_imgs:
+        imgs = imgs[:max_imgs]
+
+    N = len(imgs)
+    ncols = N // nrows
+
+    fig, axes = plt.subplots(
+        nrows=nrows, ncols=ncols, figsize=(ncols, nrows)
+    )
+
+    if not isinstance(axes, np.ndarray):
+        axes = np.array([[axes]])
+    if labels is None:
+        labels = [None for _ in axes.ravel()]
+
+    for img, ax, lbl in zip(imgs, axes.ravel(), labels):
+        if norm_brightness:
+            ax.imshow(img, vmin=-15, vmax=15,cmap="Greys_r")
+        else:
+            ax.imshow(img,cmap="Greys_r")
+        if lbl is not None:
+            ax.set_title(lbl)
+        ax.axis("off")
+
+    plt.tight_layout()
+    return fig, axes

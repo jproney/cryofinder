@@ -10,7 +10,7 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 import os
 from datetime import datetime
 import glob
-from data import ContrastiveProjectionDataset 
+from cryofinder.resnet.data import ContrastiveProjectionDataset 
 
 class ContrastiveModel(nn.Module):
     def __init__(self, embedding_dim=128):

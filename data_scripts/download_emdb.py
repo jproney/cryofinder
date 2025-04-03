@@ -1,10 +1,8 @@
 import os
 import requests
-import xml.etree.ElementTree as ET
 import gzip
 import mrcfile
 import shutil
-import pandas as pd
 
 def get_emdb_metadata(emdb_id):
     url = f"https://www.ebi.ac.uk/emdb/api/entry/{emdb_id}"
@@ -53,21 +51,30 @@ def load_map(map_path):
         return data
 
 
+import argparse
 
-# df = pd.read_csv("/nobackup/users/jamesron/siren_maps.csv")
-# emdb_ids = df['emdb_id'].astype(str).tolist()
+# Set up argument parser
+parser = argparse.ArgumentParser(description='Download EMDB maps and generate metadata CSV.')
+parser.add_argument('input_file', type=str, default="/home/gridsan/jroney/val2025_maps.txt", help='Text file containing list of EMDB IDs')
+parser.add_argument('--output_csv', type=str, default="/home/gridsan/jroney/val2025_map_data.csv", help='Output CSV file name')
+args = parser.parse_args()
 
-
+# Initialize CSV with header
 csv_lines = ["emdb_map_file,raw_pixel_size_angstrom,raw_box_size_pixel\n"]
-embds = [x[:-1] for x in open('val2025_maps.txt', 'r').readlines()]
 
+# Read EMDB IDs from input file
+with open(args.input_file, 'r') as f:
+    embds = [x[:-1] for x in f.readlines()]
+
+# Process each EMDB entry
 for e in embds:
     path = download_emdb_entry(e)
     meta = get_emdb_metadata(e)
     pix_size = meta['map']['pixel_spacing']['x']['valueOf_']
     dim = meta['map']['dimensions']['col']
-
+    
     csv_lines.append(f"{path},{pix_size},{dim}\n")
 
-with open("val2025_map_data.csv", 'w') as f:
+# Write output CSV
+with open(args.output_csv, 'w') as f:
     f.writelines(csv_lines)
