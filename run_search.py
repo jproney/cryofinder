@@ -13,7 +13,7 @@ from cryodrgn import shift_grid, so3_grid, lie_tools
 parser = argparse.ArgumentParser(description='Search maps with specified rotations and translations.')
 parser.add_argument('--metadata_csv', type=str, required=True, help='Path to the CSV file containing metadata for the queries to run. \
                                                                 Must have entries map_name, raw_box_size_pixel, raw_pixel_size_angstrom')
-parser.add_argument('--map_dir', type=str, default='/home/gridsan/jroney/val_2025_dataset', help='Directory containing the query map or projection files')
+parser.add_argument('--query_dir', type=str, default='/home/gridsan/jroney/val_2025_dataset', help='Directory containing the query map or projection files')
 parser.add_argument('--output_dir', type=str, default='/home/gridsan/jroney/search_results', help='Directory to save the search results')
 parser.add_argument('--search3d', action="store_true", help="do search over 3d maps")
 parser.add_argument('--search_data', type=str, default="", help='Directory containing the projections or volumes to search against')
@@ -71,9 +71,9 @@ scaled_pix = torch.clamp(torch.ceil(torch.tensor(dat["raw_box_size_pixel"] * dat
 # Extract IDs and paths from the CSV
 query_imglist = []
 for i, (e, apix) in enumerate(zip(dat['map_name'], dat['raw_pixel_size_angstrom'])):
-    map_path = os.path.join(args.map_dir, f'{e}.map')
-    mrcs_path = os.path.join(args.map_dir, f'{e}.mrcs')
-    mrc_path = os.path.join(args.map_dir, f'{e}.mrc')
+    map_path = os.path.join(args.query_dir, f'{e}.map')
+    mrcs_path = os.path.join(args.query_dir, f'{e}.mrcs')
+    mrc_path = os.path.join(args.query_dir, f'{e}.mrc')
 
     if os.path.exists(map_path) and args.search3d:
         vol, _  = mrc.parse_mrc(map_path)
