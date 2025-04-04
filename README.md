@@ -38,5 +38,9 @@ For generating queries you can use the same workflow, execpt if your map is not 
 After doing the above you can run a search! Do so by running
 `run_search.py --metadata_csv query_metadata.csv --query_dir /path/to/query/projections --output_dir /path/to/search/results --search_data my_proj_dataset.pt`
 
+## Analyzing Results
+
+To analyze the results of the search, take a look at the notebooks in `/notebooks` to get started.
+
 
 
