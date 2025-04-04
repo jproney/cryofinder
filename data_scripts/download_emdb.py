@@ -13,7 +13,7 @@ def get_emdb_metadata(emdb_id):
 
 
 
-def download_emdb_entry(emdb_id, output_dir="/home/gridsan/jroney/val_2025_dataset"):
+def download_emdb_entry(emdb_id, output_dir):
     emdb_id = emdb_id.split('-')[-1]
     
     # Ensure output directory exists
@@ -57,6 +57,7 @@ import argparse
 parser = argparse.ArgumentParser(description='Download EMDB maps and generate metadata CSV.')
 parser.add_argument('input_file', type=str, default="/home/gridsan/jroney/val2025_maps.txt", help='Text file containing list of EMDB IDs')
 parser.add_argument('--output_csv', type=str, default="/home/gridsan/jroney/val2025_map_data.csv", help='Output CSV file name')
+parser.add_argument('--output_dir', type=str, default="/home/gridsan/jroney/val_2025_dataset", help='Directory to save downloaded maps')
 args = parser.parse_args()
 
 # Initialize CSV with header
@@ -68,7 +69,7 @@ with open(args.input_file, 'r') as f:
 
 # Process each EMDB entry
 for e in embds:
-    path = download_emdb_entry(e)
+    path = download_emdb_entry(e, args.output_dir)
     meta = get_emdb_metadata(e)
     pix_size = meta['map']['pixel_spacing']['x']['valueOf_']
     dim = meta['map']['dimensions']['col']
