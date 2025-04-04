@@ -2,7 +2,6 @@ import os
 import argparse
 import subprocess
 import pandas as pd
-from cryofinder.data_scripts import proj
 
 parser = argparse.ArgumentParser(description='Batch process .map files with project3d.py')
 parser.add_argument('input_file', default="/home/gridsan/jroney/siren_maps.csv", help='csv with the names of volumes and metadata')
