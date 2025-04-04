@@ -26,11 +26,17 @@ The most important dependency of this project is [CryoDRGN](https://github.com/m
 
 ## Datasets 
 
-To run 2d searches, you first need to generate a dataset of reference projections. To do so run the following:
-* 
+To run 2d searches, you first need to generate a dataset of reference projections. Here's an example of how to build one from scratch:
+* `/data_scripts/download_emdb.py my_emdb_ids.txt --output_dir /path/to/downloaded/volumes/ --output_csv my_emdb_metadata.csv`
+* `/data_scripts/batch_project.py my_emdb_metadata.csv /path/to/downloaded/volumes/ /path/to/projections/`
+* `/data_scripts/make_projection_dataset.py my_emdb_ids.txt --projections_dir /path/to/projections --output_file my_proj_dataset.pt`
 
+For generating queries you can use the same workflow, execpt if your map is not in the EMDB you need to create the metadata csv manually. The last step (creating a .pt data file) is not neccesary for generating a query.
 
-## Getting Started
+## Running a Search
+
+After doing the above you can run a search! Do so by running
+`run_search.py --metadata_csv query_metadata.csv --query_dir /path/to/query/projections --output_dir /path/to/search/results --search_data my_proj_dataset.pt`
 
 
 
