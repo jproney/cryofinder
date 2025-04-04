@@ -13,25 +13,25 @@ The most important dependency of this project is [CryoDRGN](https://github.com/m
 
 ## Repository Structure
 
-- `/cryofinder` -- contains core resposity code
+- `cryofinder/` -- contains core resposity code
   - `search2d.py` -- functions for comparing 2d projections
   - `search3d.py` -- functions for comparing 3d volumes
-- `/data_scripts` -- containts scripts for generating the reference and training data sets
-- `/notebooks` -- notebooks for visualizing data and results
-- `/resnet` -- code for the CNN embedding mdoels
+- `data_scripts/` -- containts scripts for generating the reference and training data sets
+- `notebooks/` -- notebooks for visualizing data and results
+- `resnet/` -- code for the CNN embedding mdoels
   - `data.py` -- dataset for positive and negative contrastive pairs
   - `train.py` -- Pytorch Lightning script for training the embedding model
 - `run_search.py` -- top-level script for executing 2d and 3d searches
-- `/slurm_scripts` -- sbatch scripts to run searches (configured for MIT Supercloud)
+- `slurm_scripts/` -- sbatch scripts to run searches (configured for MIT Supercloud)
 
 ## Datasets 
 
 To run 2d searches, you first need to generate a dataset of reference projections. Here's an example of how to build one from scratch:
-* `/data_scripts/download_emdb.py my_emdb_ids.txt --output_dir /path/to/downloaded/volumes/ --output_csv my_emdb_metadata.csv`
-* `/data_scripts/batch_project.py my_emdb_metadata.csv /path/to/downloaded/volumes/ /path/to/projections/` (will be much faster on a GPU)
-* `/data_scripts/make_projection_dataset.py --input_file my_emdb_ids.txt --projections_dir /path/to/projections --output_file my_proj_dataset.pt`
+* `python data_scripts/download_emdb.py my_emdb_ids.txt --output_dir /path/to/downloaded/volumes/ --output_csv my_emdb_metadata.csv`
+* `python data_scripts/batch_project.py my_emdb_metadata.csv /path/to/downloaded/volumes/ /path/to/projections/` (will be much faster on a GPU)
+* `python data_scripts/make_projection_dataset.py --input_file my_emdb_ids.txt --projections_dir /path/to/projections --output_file my_proj_dataset.pt`
 
-For examples of my_emdb_ids.txt and my_emdb_metadata.csv see `assets/`.
+For examples of `my_emdb_ids.txt` and `my_emdb_metadata.csv` see `assets/`.
 
 For generating queries you can use the same workflow, execpt if your map is not in the EMDB you need to create the metadata csv manually. The last step (creating a .pt data file) is not neccesary for generating a query.
 
