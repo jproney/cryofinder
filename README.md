@@ -31,7 +31,7 @@ To run 2d searches, you first need to generate a dataset of reference projection
 * `python data_scripts/batch_project.py my_emdb_metadata.csv /path/to/downloaded/volumes/ /path/to/projections/` (will be much faster on a GPU)
 * `python data_scripts/make_projection_dataset.py --input_file my_emdb_ids.txt --projections_dir /path/to/projections --output_file my_proj_dataset.pt`
 
-For examples of `my_emdb_ids.txt` and `my_emdb_metadata.csv` see `assets/`.
+For examples of `my_emdb_ids.txt` and `my_emdb_metadata.csv` see `assets/`. The metadata csv used for building the SIREn set is in `assets/siren_set_metadata.csv`
 
 For generating queries you can use the same workflow, execpt if your map is not in the EMDB you need to create the metadata csv manually. The last step (creating a .pt data file) is not neccesary for generating a query.
 
