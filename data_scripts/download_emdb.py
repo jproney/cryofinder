@@ -74,7 +74,7 @@ for e in embds:
     pix_size = meta['map']['pixel_spacing']['x']['valueOf_']
     dim = meta['map']['dimensions']['col']
     
-    csv_lines.append(f"{path.split("/")[-1]},{pix_size},{dim}\n")
+    csv_lines.append(f"{path.split('/')[-1]},{pix_size},{dim}\n")
 
 # Write output CSV
 with open(args.output_csv, 'w') as f:
